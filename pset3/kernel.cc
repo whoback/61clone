@@ -168,14 +168,7 @@ void process_setup(pid_t pid, const char* program_name) {
     uintptr_t last_addr = PROC_START_ADDR + pid * PROC_SIZE;
     unsigned pageno = 1 + (pid - 1) * 4;
     x86_64_pagetable* pt = (x86_64_pagetable*) kalloc(PAGESIZE);
-    //(x86_64_pagetable*) (pageno * PAGESIZE);
      memset(pt, 0, PAGESIZE);
-    // for (unsigned i = 0; i != 4; ++i) {
-    //     assert(!pages[pageno + i].used());
-    //     pages[pageno + i].refcount = 1;
-    //     memset(&pt[i], 0, PAGESIZE);
-    //     pt[i].entry[0] = (uintptr_t) &pt[i + 1] | PTE_P | PTE_W | PTE_U;
-    // }
 
     // - actual entries
     for (uintptr_t a = 0; a != PROC_START_ADDR; a += PAGESIZE) {
@@ -195,7 +188,7 @@ void process_setup(pid_t pid, const char* program_name) {
         for (uintptr_t a = round_down(loader.va(), PAGESIZE);
              a < loader.va() + loader.size();
              a += PAGESIZE) {
-            assert(!pages[a / PAGESIZE].used());
+            assert(!pages[a / PAGESIZE].used());            
             pages[a / PAGESIZE].refcount = 1;
 
         }
@@ -388,8 +381,12 @@ int syscall_page_alloc(uintptr_t addr) {
         {
             kfree((void*)addr);
         }
-      pages[addr / PAGESIZE].refcount = 1;
-      memset((void*) addr, 0, PAGESIZE);
+      
+    //   pages[addr / PAGESIZE].refcount = 1;
+    void* ptr = (void *)addr;
+    ptr = kalloc(PAGESIZE);
+      memset((void*) ptr, 0, PAGESIZE);
+      vmiter(current->pagetable, addr).map(ptr, PTE_PWU);
 
     //vmiter(current->pagetable, addr).map(addr, PTE_P | PTE_W | PTE_U);
     return 0;
