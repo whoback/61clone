@@ -83,6 +83,7 @@ void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line) {
     void* ptr = m61_malloc(nmemb * sz, file, line);
     if (ptr) {
         memset(ptr, 0, nmemb * sz);
+        global_stats_holder.active_size = nmemb * sz;
     }
     return ptr;
 }
