@@ -30,8 +30,15 @@ m61_statistics global_stats_holder;
 void* m61_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
-    //start stat collection
-    global_stats_holder.nactive++;
+
+    if (sz >= (size_t)-1 - 150 - global_stats_holder.active_size)
+    {
+        global_stats_holder.nfail++;
+        global_stats_holder.fail_size = global_stats_holder.fail_size + sz;
+        return nullptr;
+    }
+        //start stat collection
+        global_stats_holder.nactive++;
     global_stats_holder.ntotal++;
     global_stats_holder.active_size = global_stats_holder.active_size + sz;
     global_stats_holder.total_size = global_stats_holder.total_size + sz;
