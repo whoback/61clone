@@ -24,7 +24,7 @@ void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 // metadata map TODO
 struct m61_metadata {
     size_t size;
-}
+};
 
 /// m61_statistics
 ///    Structure tracking memory statistics.

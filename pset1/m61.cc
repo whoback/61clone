@@ -40,7 +40,7 @@ void* m61_malloc(size_t sz, const char* file, long line) {
         global_stats_holder.fail_size = global_stats_holder.fail_size + sz;
         return nullptr;
     }
-    void* ptr_to_base_malloc
+    //void* ptr_to_base_malloc;
     //start stat collection
     global_stats_holder.nactive++;
     global_stats_holder.ntotal++;
@@ -80,7 +80,16 @@ void m61_free(void* ptr, const char* file, long line) {
 
 void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line) {
     // Your code here (to fix test014).
-    void* ptr = m61_malloc(nmemb * sz, file, line);
+    void *ptr = nullptr;
+    if ((nmemb * sz) / nmemb == sz)
+    {
+       ptr = m61_malloc(nmemb * sz, file, line);
+    }else
+    {
+        global_stats_holder.nfail++;
+    }
+    
+    
     if (ptr) {
         memset(ptr, 0, nmemb * sz);
         global_stats_holder.active_size = nmemb * sz;
