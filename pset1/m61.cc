@@ -12,9 +12,25 @@
 ///    return a unique, newly-allocated pointer value. The allocation
 ///    request was at location `file`:`line`.
 
+/*
+/// m61_statistics
+///    Structure tracking memory statistics.
+struct m61_statistics {
+    unsigned long long nactive;         // # active allocations
+    unsigned long long active_size;     // # bytes in active allocations
+    unsigned long long ntotal;          // # total allocations
+    unsigned long long total_size;      // # bytes in total allocations
+    unsigned long long nfail;           // # failed allocation attempts
+    unsigned long long fail_size;       // # bytes in failed alloc attempts
+    uintptr_t heap_min;                 // smallest allocated addr
+    uintptr_t heap_max;                 // largest allocated addr
+};
+*/
+m61_statistics global_stats_holder;
 void* m61_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
+    
     return base_malloc(sz);
 }
 
@@ -27,6 +43,10 @@ void* m61_malloc(size_t sz, const char* file, long line) {
 void m61_free(void* ptr, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
+    if(ptr == nullptr)
+    {
+        return;
+    }
     base_free(ptr);
 }
 
@@ -55,6 +75,7 @@ void m61_get_statistics(m61_statistics* stats) {
     // Stub: set all statistics to enormous numbers
     memset(stats, 255, sizeof(m61_statistics));
     // Your code here.
+    *stats = global_stats_holder;
 }
 
 
