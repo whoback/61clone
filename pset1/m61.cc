@@ -26,6 +26,7 @@ struct m61_statistics {
     uintptr_t heap_max;                 // largest allocated addr
 };
 */
+
 //initialize statistics struct
 m61_statistics global_stats_holder = {0,0,0,0,0,0,0,0};
 void* m61_malloc(size_t sz, const char* file, long line) {
@@ -49,13 +50,13 @@ void* m61_malloc(size_t sz, const char* file, long line) {
     global_stats_holder.active_size = global_stats_holder.active_size + 8;
     global_stats_holder.total_size = global_stats_holder.total_size + sz;
     //heap min/max
-    if(global_stats_holder.heap_min > (uintptr_t) ptr_to_base_malloc)
+    if(global_stats_holder.heap_min > reinterpret_cast<uintptr_t>(ptr_to_base_malloc))
     {
-        global_stats_holder.heap_min = (uintptr_t)ptr_to_base_malloc;
+        global_stats_holder.heap_min = reinterpret_cast<uintptr_t>(ptr_to_base_malloc);
     }
-    if(global_stats_holder.heap_max < (uintptr_t)ptr_to_base_malloc + sz)
+    if (global_stats_holder.heap_max < reinterpret_cast<uintptr_t>(ptr_to_base_malloc) + sz)
     {
-        global_stats_holder.heap_max = (uintptr_t)ptr_to_base_malloc+sz;
+        global_stats_holder.heap_max = reinterpret_cast<uintptr_t>(ptr_to_base_malloc) + sz;
     }
     return ptr_to_base_malloc;
 }
