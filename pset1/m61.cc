@@ -30,7 +30,7 @@ m61_statistics global_stats_holder;
 void* m61_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
-    if(!sz)
+    if(!sz || sz <= 0)
     {
         return nullptr;
     }
