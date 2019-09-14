@@ -36,7 +36,8 @@ void* m61_malloc(size_t sz, const char* file, long line) {
     {
         return nullptr;
     }
-    if (sz >= (size_t)-1 - 150 - global_stats_holder.active_size)
+    //test-005 fail-size test
+    if (sz >= (size_t) - 1 - 150 - global_stats_holder.active_size)
     {
         global_stats_holder.nfail++;
         global_stats_holder.fail_size = global_stats_holder.fail_size + sz;
