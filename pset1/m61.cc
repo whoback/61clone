@@ -26,7 +26,8 @@ struct m61_statistics {
     uintptr_t heap_max;                 // largest allocated addr
 };
 */
-m61_statistics global_stats_holder;
+//initialize statistics struct
+m61_statistics global_stats_holder = {0,0,0,0,0,0,0,0};
 void* m61_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
@@ -40,15 +41,23 @@ void* m61_malloc(size_t sz, const char* file, long line) {
         global_stats_holder.fail_size = global_stats_holder.fail_size + sz;
         return nullptr;
     }
-    //void* ptr_to_base_malloc;
+    void* ptr_to_base_malloc;
+    ptr_to_base_malloc = base_malloc(sz);
     //start stat collection
     global_stats_holder.nactive++;
     global_stats_holder.ntotal++;
     global_stats_holder.active_size = global_stats_holder.active_size + 8;
     global_stats_holder.total_size = global_stats_holder.total_size + sz;
     //heap min/max
-    if((char*) base_malloc(sz))
-    return base_malloc(sz);
+    if(global_stats_holder.heap_min > (uintptr_t) ptr_to_base_malloc)
+    {
+        global_stats_holder.heap_min = (uintptr_t)ptr_to_base_malloc;
+    }
+    if(global_stats_holder.heap_max < (uintptr_t)ptr_to_base_malloc + sz)
+    {
+        global_stats_holder.heap_max = (uintptr_t)ptr_to_base_malloc+sz;
+    }
+    return ptr_to_base_malloc;
 }
 
 
@@ -60,6 +69,7 @@ void* m61_malloc(size_t sz, const char* file, long line) {
 void m61_free(void* ptr, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
+    //test008  null pointers are freeable
     if(ptr == nullptr)
     {
         return;
