@@ -29,6 +29,22 @@ struct m61_statistics {
 
 //initialize statistics struct
 m61_statistics global_stats_holder = {0,0,0,0,0,0,0,0};
+
+/*
+Implicit free list sketch of data struct
+
+--> ************************<--
+|   * a *    size          *  | "header"     a = is an allocated bit 0/1->alloc/free
+|   ************************<--             size = is value of entire block (header+payload+padding)
+b   *                      *
+l   *                      *               payload = actual data
+o   *   payload or free    *         
+c   *                      *
+k   ************************
+|   *    padding           *               padding if needed
+--> ************************
+
+ */
 void* m61_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
