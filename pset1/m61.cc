@@ -10,7 +10,7 @@
 m61_statistics global_stats = {0,0,0,0,0,0,0,0};
 
 //STL list to hold ptrs to metadata structs
-std::list<meta *> metadata_list;
+std::list<meta *> l;
 
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
@@ -22,13 +22,10 @@ void *m61_malloc(size_t sz, const char *file, long line)
 {
     (void)file, (void)line; // avoid uninitialized variable warnings
     // Your code here.
-    void* ptr_to_base_malloc;
+    
     //initialize metadata struct
     meta allocation_metadata;
     allocation_metadata.size = sz;
-    unsigned int size_of_metadata_struct = sizeof(meta);
-    
-    
 
     // test005 make sure sz requested isn't too large to handle
     if (!sz || sz > 0x10000000000)
@@ -37,7 +34,17 @@ void *m61_malloc(size_t sz, const char *file, long line)
         global_stats.fail_size += sz;
         return nullptr;
     }
-    ptr_to_base_malloc = base_malloc(sz);
+
+    //this is a pointer to the requested allocation plus the metadata information
+    meta* ptr_to_block;
+    ptr_to_block = reinterpret_cast<meta*>( base_malloc(sz + sizeof(meta)));
+    //add to allocations list
+    l.push_back(ptr_to_block);
+    //this is a pointer to just the requested allocation which will be returned
+    void* ptr_to_alloc;
+    ptr_to_alloc = reinterpret_cast<void*>(ptr_to_block + sizeof(meta));
+
+    //Stats
     //test003 track actives but we also need to free them
     global_stats.nactive++;
     //test002 track allocation totals
@@ -45,7 +52,10 @@ void *m61_malloc(size_t sz, const char *file, long line)
     //test004 total allocation size
     global_stats.total_size += sz;
 
-    return ptr_to_base_malloc;
+    //test006
+    global_stats.active_size += sz;
+
+    return ptr_to_alloc;
 }
 
 /// m61_free(ptr, file, line)
@@ -57,11 +67,19 @@ void m61_free(void *ptr, const char *file, long line)
 {
     (void)file, (void)line; // avoid uninitialized variable warnings
     // Your code here.
+    //can't free nothing so
+    if(ptr == nullptr || ptr == NULL)
+    {
+        return;
+    }
+    //cast ptr to uintptr_t for math
+    meta* ptr_to_metadata = reinterpret_cast<meta*>(reinterpret_cast<uintptr_t>(ptr) - sizeof(meta));
+    
     base_free(ptr);
     //test003 freeing an alloc means we need to remove it from our stats
     global_stats.nactive--;
     //test006 make sure to update active allocation size when freeing
-    global_stats.active_size -= 
+    global_stats.active_size -= ptr_to_metadata->size;
 }
 
 /// m61_calloc(nmemb, sz, file, line)
