@@ -12,109 +12,24 @@
 ///    return a unique, newly-allocated pointer value. The allocation
 ///    request was at location `file`:`line`.
 
-/*
-/// m61_statistics
-///    Structure tracking memory statistics.
-struct m61_statistics {
-    unsigned long long nactive;         // # active allocations
-    unsigned long long active_size;     // # bytes in active allocations
-    unsigned long long ntotal;          // # total allocations
-    unsigned long long total_size;      // # bytes in total allocations
-    unsigned long long nfail;           // # failed allocation attempts
-    unsigned long long fail_size;       // # bytes in failed alloc attempts
-    uintptr_t heap_min;                 // smallest allocated addr
-    uintptr_t heap_max;                 // largest allocated addr
-};
-*/
-
-//initialize statistics struct
-m61_statistics global_stats_holder = {0,0,0,0,0,0,0,0};
-
-/*
-Implicit free list sketch of data struct
-as described in lecture slides
---> ************************<--
-|   * a *    size          *  | "header"     a = is an allocated bit 0/1->alloc/free
-|   ************************<--             size = is value of entire block (header+payload+padding)
-b   *                      *
-l   *                      *               payload = actual data
-o   *   payload or free    *         
-c   *                      *
-k   ************************
-|   *    padding           *               padding if needed
---> ************************
-
- */
-
-void* m61_malloc(size_t sz, const char* file, long line) {
-    (void) file, (void) line;   // avoid uninitialized variable warnings
+void *m61_malloc(size_t sz, const char *file, long line)
+{
+    (void)file, (void)line; // avoid uninitialized variable warnings
     // Your code here.
-    meta metadata{};
-    metadata.size = sz;
-
-    if(!sz || sz <= 0)
-    {
-        return nullptr;
-    }
-    //test-005 fail-size test
-    if (sz >= (size_t) - 1 - 150 - global_stats_holder.active_size)
-    {
-        global_stats_holder.nfail++;
-        global_stats_holder.fail_size = global_stats_holder.fail_size + sz;
-        return nullptr;
-    }
-    //this is the pointer to our 'block' ie size requested plus our metadata struct
-    meta* ptr_to_metadata = reinterpret_cast<meta*>(base_malloc(sz + sizeof(metadata) + sizeof(size_t) + 8));
-    *ptr_to_metadata = metadata;
-    
-    void* ptr_to_base_malloc;
-    ptr_to_base_malloc = base_malloc(sz);
-    //start stat collection
-    global_stats_holder.nactive++;
-    global_stats_holder.ntotal++;
-    global_stats_holder.active_size = global_stats_holder.active_size + 8;
-    global_stats_holder.total_size = global_stats_holder.total_size + sz;
-    //heap min/max
-    if(global_stats_holder.heap_min > reinterpret_cast<uintptr_t>(ptr_to_base_malloc))
-    {
-        global_stats_holder.heap_min = reinterpret_cast<uintptr_t>(ptr_to_base_malloc);
-    }
-    if (global_stats_holder.heap_max < reinterpret_cast<uintptr_t>(ptr_to_base_malloc) + sz)
-    {
-        global_stats_holder.heap_max = reinterpret_cast<uintptr_t>(ptr_to_base_malloc) + sz;
-    }
-    
-    return ptr_to_base_malloc;
+    return base_malloc(sz);
 }
-
 
 /// m61_free(ptr, file, line)
 ///    Free the memory space pointed to by `ptr`, which must have been
 ///    returned by a previous call to m61_malloc. If `ptr == NULL`,
 ///    does nothing. The free was called at location `file`:`line`.
 
-void m61_free(void* ptr, const char* file, long line) {
-    (void) file, (void) line;   // avoid uninitialized variable warnings
+void m61_free(void *ptr, const char *file, long line)
+{
+    (void)file, (void)line; // avoid uninitialized variable warnings
     // Your code here.
-    //test008  null pointers are freeable
-    if(ptr == nullptr)
-    {
-        return;
-    }
-    //test011
-    
-    if (reinterpret_cast<uintptr_t>(ptr) < global_stats_holder.heap_min || reinterpret_cast<uintptr_t>(ptr) >= global_stats_holder.heap_max)
-    {
-        
-        return;
-    }
-    
-
-    global_stats_holder.nactive--;
-    global_stats_holder.active_size = global_stats_holder.active_size - 8;
     base_free(ptr);
 }
-
 
 /// m61_calloc(nmemb, sz, file, line)
 ///    Return a pointer to newly-allocated dynamic memory big enough to
@@ -123,40 +38,32 @@ void m61_free(void* ptr, const char* file, long line) {
 ///    memory should be initialized to zero. The allocation request was at
 ///    location `file`:`line`.
 
-void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line) {
+void *m61_calloc(size_t nmemb, size_t sz, const char *file, long line)
+{
     // Your code here (to fix test014).
-    void *ptr = nullptr;
-    if ((nmemb * sz) / nmemb == sz)
+    void *ptr = m61_malloc(nmemb * sz, file, line);
+    if (ptr)
     {
-       ptr = m61_malloc(nmemb * sz, file, line);
-    }
-    else
-    {
-        global_stats_holder.nfail++;
-    }
-    if (ptr) {
         memset(ptr, 0, nmemb * sz);
-        global_stats_holder.active_size = nmemb * sz;
     }
     return ptr;
 }
 
-
 /// m61_get_statistics(stats)
 ///    Store the current memory statistics in `*stats`.
 
-void m61_get_statistics(m61_statistics* stats) {
+void m61_get_statistics(m61_statistics *stats)
+{
     // Stub: set all statistics to enormous numbers
     memset(stats, 255, sizeof(m61_statistics));
     // Your code here.
-    *stats = global_stats_holder;
 }
-
 
 /// m61_print_statistics()
 ///    Print the current memory statistics.
 
-void m61_print_statistics() {
+void m61_print_statistics()
+{
     m61_statistics stats;
     m61_get_statistics(&stats);
 
@@ -166,19 +73,19 @@ void m61_print_statistics() {
            stats.active_size, stats.total_size, stats.fail_size);
 }
 
-
 /// m61_print_leak_report()
 ///    Print a report of all currently-active allocated blocks of dynamic
 ///    memory.
 
-void m61_print_leak_report() {
+void m61_print_leak_report()
+{
     // Your code here.
 }
-
 
 /// m61_print_heavy_hitter_report()
 ///    Print a report of heavily-used allocation locations.
 
-void m61_print_heavy_hitter_report() {
+void m61_print_heavy_hitter_report()
+{
     // Your heavy-hitters code here
 }
