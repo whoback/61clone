@@ -22,10 +22,8 @@ void *m61_malloc(size_t sz, const char *file, long line)
 {
     (void)file, (void)line; // avoid uninitialized variable warnings
     // Your code here.
+
     
-    //initialize metadata struct
-    meta allocation_metadata;
-    allocation_metadata.size = sz;
 
     // test005 make sure sz requested isn't too large to handle
     if (!sz || sz > 0x10000000000)
@@ -35,6 +33,20 @@ void *m61_malloc(size_t sz, const char *file, long line)
         return nullptr;
     }
 
+    //initialize metadata struct
+    meta allocation_metadata;
+    allocation_metadata.size = sz;
+    //check if list is empty
+    if (l.empty > 0)
+    {
+        allocation_metadata.uid = 0;
+    }
+    else
+    {
+        meta t = l.front;
+        allocation_metadata.uid = t.uid++;
+    }
+    
     //this is a pointer to the requested allocation plus the metadata information
     meta* ptr_to_block;
     ptr_to_block = reinterpret_cast<meta*>(base_malloc(sz + sizeof(meta)));

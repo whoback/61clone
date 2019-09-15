@@ -24,6 +24,7 @@ void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 // metadata map TODO
 struct meta{
     size_t size;
+    unsigned int uid = 0;
 };
 
 // std::list<m61_metadata> metadata_list;
