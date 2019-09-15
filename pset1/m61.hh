@@ -5,7 +5,7 @@
 #include <cinttypes>
 #include <cstdio>
 #include <new>
-#include <unordered_map> //for hashmap impl
+#include <list>
 
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
@@ -22,10 +22,11 @@ void m61_free(void* ptr, const char* file, long line);
 void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 
 // metadata map TODO
-struct m61_metadata {
+struct meta{
     size_t size;
 };
 
+// std::list<m61_metadata> metadata_list;
 /// m61_statistics
 ///    Structure tracking memory statistics.
 struct m61_statistics {

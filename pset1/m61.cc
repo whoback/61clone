@@ -32,7 +32,7 @@ m61_statistics global_stats_holder = {0,0,0,0,0,0,0,0};
 
 /*
 Implicit free list sketch of data struct
-
+as described in lecture slides
 --> ************************<--
 |   * a *    size          *  | "header"     a = is an allocated bit 0/1->alloc/free
 |   ************************<--             size = is value of entire block (header+payload+padding)
@@ -45,9 +45,13 @@ k   ************************
 --> ************************
 
  */
+
 void* m61_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
+    meta metadata{};
+    metadata.size = sz;
+
     if(!sz || sz <= 0)
     {
         return nullptr;
@@ -59,6 +63,10 @@ void* m61_malloc(size_t sz, const char* file, long line) {
         global_stats_holder.fail_size = global_stats_holder.fail_size + sz;
         return nullptr;
     }
+    //this is the pointer to our 'block' ie size requested plus our metadata struct
+    meta* ptr_to_metadata = reinterpret_cast<meta*>(base_malloc(sz + sizeof(metadata) + sizeof(size_t) + 8));
+    *ptr_to_metadata = metadata;
+    
     void* ptr_to_base_malloc;
     ptr_to_base_malloc = base_malloc(sz);
     //start stat collection
@@ -75,6 +83,7 @@ void* m61_malloc(size_t sz, const char* file, long line) {
     {
         global_stats_holder.heap_max = reinterpret_cast<uintptr_t>(ptr_to_base_malloc) + sz;
     }
+    
     return ptr_to_base_malloc;
 }
 
@@ -92,6 +101,14 @@ void m61_free(void* ptr, const char* file, long line) {
     {
         return;
     }
+    //test011
+    
+    if (reinterpret_cast<uintptr_t>(ptr) < global_stats_holder.heap_min || reinterpret_cast<uintptr_t>(ptr) >= global_stats_holder.heap_max)
+    {
+        
+        return;
+    }
+    
 
     global_stats_holder.nactive--;
     global_stats_holder.active_size = global_stats_holder.active_size - 8;
