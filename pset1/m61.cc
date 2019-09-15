@@ -37,14 +37,14 @@ void *m61_malloc(size_t sz, const char *file, long line)
     meta allocation_metadata;
     allocation_metadata.size = sz;
     //check if list is empty
-    if (l.empty > 0)
+    if (l.empty() > 0)
     {
         allocation_metadata.uid = 0;
     }
     else
     {
-        meta t = l.front;
-        allocation_metadata.uid = t.uid++;
+        meta *t = l.front();
+        allocation_metadata.uid = t->uid++;
     }
     
     //this is a pointer to the requested allocation plus the metadata information
