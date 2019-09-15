@@ -37,12 +37,14 @@ void *m61_malloc(size_t sz, const char *file, long line)
 
     //this is a pointer to the requested allocation plus the metadata information
     meta* ptr_to_block;
-    ptr_to_block = reinterpret_cast<meta*>( base_malloc(sz + sizeof(meta)));
+    ptr_to_block = reinterpret_cast<meta*>(base_malloc(sz + sizeof(meta)));
+    //assign pointer to place in memory where allocation_metadata struct lives
+    *ptr_to_block = allocation_metadata;
     //add to allocations list
     l.push_back(ptr_to_block);
     //this is a pointer to just the requested allocation which will be returned
     void* ptr_to_alloc;
-    ptr_to_alloc = reinterpret_cast<void*>(ptr_to_block + sizeof(meta));
+    ptr_to_alloc = reinterpret_cast<void*>(reinterpret_cast<char*>(ptr_to_block) + sizeof(meta));
 
     //Stats
     //test003 track actives but we also need to free them
@@ -54,6 +56,16 @@ void *m61_malloc(size_t sz, const char *file, long line)
 
     //test006
     global_stats.active_size += sz;
+
+    //test009 and test001 heap_min and heap_max checking
+    if(reinterpret_cast<uintptr_t>(ptr_to_alloc) < global_stats.heap_min)
+    {
+        global_stats.heap_min = reinterpret_cast<uintptr_t>(ptr_to_alloc);
+    }
+    if (reinterpret_cast<uintptr_t>(ptr_to_alloc) + sz > global_stats.heap_max)
+    {
+        global_stats.heap_max = reinterpret_cast<uintptr_t>(ptr_to_alloc) + sz;
+    }
 
     return ptr_to_alloc;
 }
