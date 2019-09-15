@@ -57,7 +57,7 @@ void *m61_malloc(size_t sz, const char *file, long line)
     //test006
     global_stats.active_size += sz;
 
-    //test009 and test001 heap_min and heap_max checking
+    //test009 and test010 heap_min and heap_max checking
     if(reinterpret_cast<uintptr_t>(ptr_to_alloc) < global_stats.heap_min)
     {
         global_stats.heap_min = reinterpret_cast<uintptr_t>(ptr_to_alloc);
