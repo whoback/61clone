@@ -15,6 +15,7 @@ int main() {
     }
     m61_statistics stat;
     m61_get_statistics(&stat);
+    
 
     union {
         uintptr_t addr;
@@ -23,6 +24,7 @@ int main() {
         int (*mainptr)();
     } x;
     x.iptr = &global;
+    printf("x.addr: %lu, sizeof int: %lu, heapmin: %lu,heapmax: %lu\n", x.addr,sizeof(int),stat.heap_min, stat.heap_max);
     assert(x.addr + sizeof(int) < stat.heap_min || x.addr >= stat.heap_max);
     x.statptr = &stat;
     assert(x.addr + sizeof(int) < stat.heap_min || x.addr >= stat.heap_max);

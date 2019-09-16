@@ -23,8 +23,10 @@ void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 
 // metadata map TODO
 struct meta{
-    size_t size;
+    size_t size; //user requested size 'payload'
+    size_t padding; // if sz isn't div by 16
     unsigned int uid = 0;
+    uintptr_t addr;
 };
 
 // std::list<m61_metadata> metadata_list;

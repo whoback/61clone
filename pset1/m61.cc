@@ -5,26 +5,28 @@
 #include <cstdio>
 #include <cinttypes>
 #include <cassert>
-
+#include <vector>
+#define ALIGN_SIZE 16
 //track stats
-m61_statistics global_stats = {0,0,0,0,0,0,0,0};
+m61_statistics global_stats;
 
-//STL list to hold ptrs to metadata structs
-std::list<meta *> l;
 
+std::vector<meta> allocations;
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then m61_malloc must
 ///    return a unique, newly-allocated pointer value. The allocation
 ///    request was at location `file`:`line`.
+size_t align_help(size_t s)
+{
+    size_t res = s % 16 * sizeof(char);
 
+    return res;
+}
 void *m61_malloc(size_t sz, const char *file, long line)
 {
     (void)file, (void)line; // avoid uninitialized variable warnings
     // Your code here.
-
-    
-
     // test005 make sure sz requested isn't too large to handle
     if (!sz || sz > 0x10000000000)
     {
@@ -36,24 +38,25 @@ void *m61_malloc(size_t sz, const char *file, long line)
     //initialize metadata struct
     meta allocation_metadata;
     allocation_metadata.size = sz;
-    //check if list is empty
-    if (l.empty() > 0)
-    {
-        allocation_metadata.uid = 0;
-    }
-    else
-    {
-        meta *t = l.front();
-        allocation_metadata.uid = t->uid++;
-    }
     
     //this is a pointer to the requested allocation plus the metadata information
     meta* ptr_to_block;
-    ptr_to_block = reinterpret_cast<meta*>(base_malloc(sz + sizeof(meta)));
-    //assign pointer to place in memory where allocation_metadata struct lives
-    *ptr_to_block = allocation_metadata;
+    ptr_to_block = reinterpret_cast<meta*>(base_malloc(sz + sizeof(meta) + align_help(sz)));
+    // if (reinterpret_cast<uintptr_t>(ptr_to_block) > global_stats.heap_max ||
+    //     reinterpret_cast<uintptr_t>(ptr_to_block) < global_stats.heap_min)
+    //     {
+    //         global_stats.nfail++;
+    //         global_stats.fail_size += sz;
+    //         return nullptr;
+    //     }
+
+     //assign pointer to place in memory where allocation_metadata struct lives
+     *ptr_to_block = allocation_metadata;
     //add to allocations list
-    l.push_back(ptr_to_block);
+    
+    allocation_metadata.addr = reinterpret_cast<uintptr_t>(ptr_to_block);
+    //test vector
+    allocations.push_back(allocation_metadata);
     //this is a pointer to just the requested allocation which will be returned
     void* ptr_to_alloc;
     ptr_to_alloc = reinterpret_cast<void*>(reinterpret_cast<char*>(ptr_to_block) + sizeof(meta));
@@ -68,17 +71,17 @@ void *m61_malloc(size_t sz, const char *file, long line)
 
     //test006
     global_stats.active_size += sz;
-
+    
+    
     //test009 and test010 heap_min and heap_max checking
-    if(reinterpret_cast<uintptr_t>(ptr_to_alloc) < global_stats.heap_min)
+    if (reinterpret_cast<uintptr_t>(ptr_to_block) <= global_stats.heap_min)
     {
-        global_stats.heap_min = reinterpret_cast<uintptr_t>(ptr_to_alloc);
+        global_stats.heap_min = reinterpret_cast<uintptr_t>(ptr_to_block);
     }
     if (reinterpret_cast<uintptr_t>(ptr_to_alloc) + sz > global_stats.heap_max)
     {
         global_stats.heap_max = reinterpret_cast<uintptr_t>(ptr_to_alloc) + sz;
     }
-
     return ptr_to_alloc;
 }
 
@@ -98,6 +101,7 @@ void m61_free(void *ptr, const char *file, long line)
     }
     //cast ptr to uintptr_t for math
     meta* ptr_to_metadata = reinterpret_cast<meta*>(reinterpret_cast<uintptr_t>(ptr) - sizeof(meta));
+    //ptr_to_metadata
     
     base_free(ptr);
     //test003 freeing an alloc means we need to remove it from our stats
