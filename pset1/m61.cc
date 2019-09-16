@@ -112,6 +112,13 @@ void m61_free(void *ptr, const char *file, long line)
     meta* ptr_to_metadata = reinterpret_cast<meta*>(reinterpret_cast<uintptr_t>(ptr) - sizeof(meta));
     //ptr_to_metadata
     
+    //test016
+    if((uintptr_t)ptr < global_stats.heap_min ||
+    (uintptr_t)ptr > global_stats.heap_max)
+    {
+        printf("MEMORY BUG %s:%li: invalid free of pointer %p, not in heap\n", file, line, ptr);
+        return;
+    }
     base_free(ptr);
     //test003 freeing an alloc means we need to remove it from our stats
     global_stats.nactive--;
