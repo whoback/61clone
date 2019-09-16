@@ -6,9 +6,9 @@
 #include <cinttypes>
 #include <cassert>
 #include <vector>
-#define ALIGN_SIZE 16
+#define ALIGN_SIZE 8
 //track stats
-m61_statistics global_stats;
+m61_statistics global_stats = {};
 
 
 std::vector<meta> allocations;
@@ -19,7 +19,7 @@ std::vector<meta> allocations;
 ///    request was at location `file`:`line`.
 size_t align_help(size_t s)
 {
-    size_t res = s % 16 * sizeof(char);
+    size_t res = s % ALIGN_SIZE * sizeof(char);
 
     return res;
 }
@@ -39,9 +39,24 @@ void *m61_malloc(size_t sz, const char *file, long line)
     meta allocation_metadata;
     allocation_metadata.size = sz;
     
+    
     //this is a pointer to the requested allocation plus the metadata information
     meta* ptr_to_block;
-    ptr_to_block = reinterpret_cast<meta*>(base_malloc(sz + sizeof(meta) + align_help(sz)));
+    //logging info
+
+    ptr_to_block = (meta*)(base_malloc(sz + sizeof(size_t) + sizeof(meta) + align_help(sz) + 8 + sizeof(meta*)));
+    
+    void* ptr_to_payload = (void*)(ptr_to_block + sizeof(meta));
+    
+    //test009 and test010 heap_min and heap_max checking
+    if (reinterpret_cast<uintptr_t>(ptr_to_payload) < global_stats.heap_min)
+    {
+        global_stats.heap_min = reinterpret_cast<uintptr_t>(ptr_to_payload);
+    }
+    if (reinterpret_cast<uintptr_t>(ptr_to_payload) >= global_stats.heap_max)
+    {
+        global_stats.heap_max = reinterpret_cast<uintptr_t>(ptr_to_payload)+sz;
+    }
     // if (reinterpret_cast<uintptr_t>(ptr_to_block) > global_stats.heap_max ||
     //     reinterpret_cast<uintptr_t>(ptr_to_block) < global_stats.heap_min)
     //     {
@@ -54,13 +69,15 @@ void *m61_malloc(size_t sz, const char *file, long line)
      *ptr_to_block = allocation_metadata;
     //add to allocations list
     
-    allocation_metadata.addr = reinterpret_cast<uintptr_t>(ptr_to_block);
+    
+
+    if (allocations.empty())
+    {
+        global_stats.heap_min = reinterpret_cast<uintptr_t>(ptr_to_block);
+    }
     //test vector
     allocations.push_back(allocation_metadata);
-    //this is a pointer to just the requested allocation which will be returned
-    void* ptr_to_alloc;
-    ptr_to_alloc = reinterpret_cast<void*>(reinterpret_cast<char*>(ptr_to_block) + sizeof(meta));
-
+   
     //Stats
     //test003 track actives but we also need to free them
     global_stats.nactive++;
@@ -72,17 +89,9 @@ void *m61_malloc(size_t sz, const char *file, long line)
     //test006
     global_stats.active_size += sz;
     
+
     
-    //test009 and test010 heap_min and heap_max checking
-    if (reinterpret_cast<uintptr_t>(ptr_to_block) <= global_stats.heap_min)
-    {
-        global_stats.heap_min = reinterpret_cast<uintptr_t>(ptr_to_block);
-    }
-    if (reinterpret_cast<uintptr_t>(ptr_to_alloc) + sz > global_stats.heap_max)
-    {
-        global_stats.heap_max = reinterpret_cast<uintptr_t>(ptr_to_alloc) + sz;
-    }
-    return ptr_to_alloc;
+    return (void*) ((char*)ptr_to_block + sizeof(meta));
 }
 
 /// m61_free(ptr, file, line)
