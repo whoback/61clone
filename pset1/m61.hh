@@ -25,6 +25,7 @@ void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 // metadata map TODO
 struct meta{
     size_t size; //user requested size 'payload'
+    int active; //is this alloc active? 1 = active 0 = inactive
 };
 
 // std::list<m61_metadata> metadata_list;

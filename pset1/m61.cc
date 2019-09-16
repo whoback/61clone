@@ -38,6 +38,7 @@ void *m61_malloc(size_t sz, const char *file, long line)
     //initialize metadata struct
     meta allocation_metadata;
     allocation_metadata.size = sz;
+    allocation_metadata.active = 1;
     
     
     //this is a pointer to the requested allocation plus the metadata information
@@ -119,7 +120,16 @@ void m61_free(void *ptr, const char *file, long line)
         printf("MEMORY BUG %s:%li: invalid free of pointer %p, not in heap\n", file, line, ptr);
         return;
     }
+    //check to see if allocation is active
+    if(ptr_to_metadata->active != 1)
+    {
+        printf("MEMORY BUG %s:%li: invalid free of pointer %p, double free\n", file, line, ptr);
+        return;
+        
+    }
     base_free(ptr);
+    //flip allocation active state
+    ptr_to_metadata->active = 0;
     //test003 freeing an alloc means we need to remove it from our stats
     global_stats.nactive--;
     //test006 make sure to update active allocation size when freeing
