@@ -129,6 +129,12 @@ void m61_free(void *ptr, const char *file, long line)
 void *m61_calloc(size_t nmemb, size_t sz, const char *file, long line)
 {
     // Your code here (to fix test014).
+
+    if((nmemb * sz) / nmemb != sz)
+    {
+        global_stats.nfail++;
+        return nullptr;
+    }
     void *ptr = m61_malloc(nmemb * sz, file, line);
     if (ptr)
     {
