@@ -6,6 +6,8 @@
 #include <cinttypes>
 #include <cassert>
 
+
+m61_statistics global_stats = {0,0,0,0,0,0,0,0};
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then m61_malloc must
@@ -15,6 +17,9 @@
 void* m61_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
+    global_stats.ntotal++; //number of total allocations
+    global_stats.total_size += sz; //total number of bytes in successful allocs
+    global_stats.nactive++; //num of active allocs will need math TODO 
     return base_malloc(sz);
 }
 
@@ -27,6 +32,9 @@ void* m61_malloc(size_t sz, const char* file, long line) {
 void m61_free(void* ptr, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
+
+    global_stats.nactive--; 
+    
     base_free(ptr);
 }
 
@@ -55,6 +63,7 @@ void m61_get_statistics(m61_statistics* stats) {
     // Stub: set all statistics to enormous numbers
     memset(stats, 255, sizeof(m61_statistics));
     // Your code here.
+    *stats = global_stats;
 }
 
 

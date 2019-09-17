@@ -25,9 +25,12 @@ void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 // metadata map TODO
 struct meta{
     size_t size; //user requested size 'payload'
-    int active; //is this alloc active? 1 = active 0 = inactive
-    uintptr_t alloc_addr;
+    int is_active; //is this alloc active? 1 = active 0 = inactive
+    //uintptr_t alloc_addr; may not use
+    struct meta* ptr_to_next; //pointer to next structure in list
 };
+
+
 
 // std::list<m61_metadata> metadata_list;
 /// m61_statistics
@@ -42,6 +45,7 @@ struct m61_statistics {
     uintptr_t heap_min;                 // smallest allocated addr
     uintptr_t heap_max;                 // largest allocated addr
 };
+
 
 /// m61_get_statistics(stats)
 ///    Store the current memory statistics in `*stats`.
