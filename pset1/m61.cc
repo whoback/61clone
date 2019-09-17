@@ -124,7 +124,11 @@ void m61_free(void *ptr, const char *file, long line)
     auto r = std::find_if(std::begin(allocations), std::end(allocations), valid_alloc);
     //check to see if allocation is active and we exist in allocations list
     //fixdes test020
-    if (ptr_to_metadata->active != 1 && r != std::end(allocations))
+    if(r != std::end(allocations))
+    {
+        printf("MEMORY BUG %s:%li: invalid free of pointer %p, double free\n", file, line, ptr);
+        return;
+    }else if (ptr_to_metadata->active != 1)
     {
         printf("MEMORY BUG %s:%li: invalid free of pointer %p, double free\n", file, line, ptr);
         return;
@@ -135,22 +139,20 @@ void m61_free(void *ptr, const char *file, long line)
     
     if (r != std::end(allocations))
     {
-        // if not in allocations means we've freed so don't double free
         //flip allocation active state
         ptr_to_metadata->active = 0;
-        //test003 freeing an alloc means we need to remove it from our stats
         global_stats.nactive--;
-        //test006 make sure to update active allocation size when freeing
         global_stats.active_size -= ptr_to_metadata->size;
+        base_free(ptr_to_metadata);
         return;
-        //ptr is in our allocations vector
     }
     else
     {
+        // if not in allocations means we've freed so don't double free
         printf("MEMORY BUG %s:%li: invalid free of pointer %p, not allocated\n", file, line, ptr);
         return;
     }
-
+    base_free(ptr_to_metadata);
     //flip allocation active state to 0 = not active
     ptr_to_metadata->active = 0;
     //test003 freeing an alloc means we need to remove it from our stats
