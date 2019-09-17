@@ -12,22 +12,23 @@
 m61_statistics global_stats = {};
 
 
+//this vector stores every meta struct we've allocated
 std::vector<meta> allocations;
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then m61_malloc must
 ///    return a unique, newly-allocated pointer value. The allocation
 ///    request was at location `file`:`line`.
+
+//if sz isn't power of 2 lets fix that
+
 size_t align_help(size_t s)
 {
     size_t res = s % ALIGN_SIZE * sizeof(char);
 
     return res;
 }
-// lambda for searching our vector of allocations
-auto valid_alloc = [](const meta& x){
-    return x.alloc_addr;
-}; 
+
 
 void *m61_malloc(size_t sz, const char *file, long line)
 {
@@ -46,16 +47,15 @@ void *m61_malloc(size_t sz, const char *file, long line)
     allocation_metadata.size = sz;
     //active is 1 inactive is 0
     allocation_metadata.active = 1;
-    
-    
-    //this is a pointer to the requested allocation plus the metadata information
-    meta* ptr_to_block;
-    //logging info
 
-    ptr_to_block = (meta*)(base_malloc(sz + sizeof(size_t) + sizeof(meta) + align_help(sz) + 8 + sizeof(meta*)));
-    
-    void* ptr_to_payload = (void*)(ptr_to_block + sizeof(meta));
-    
+    //this is a pointer to the requested allocation plus the metadata information
+    meta *ptr_to_block;
+    //logging info
+    //entire allocation includes requested sz + size_t + size of struct + any padding from odd sz
+    ptr_to_block = (meta *)(base_malloc(sz + sizeof(size_t) + sizeof(meta) + align_help(sz)));
+
+    void *ptr_to_payload = (void *)(ptr_to_block + sizeof(meta));
+
     //test009 and test010 heap_min and heap_max checking
     if (reinterpret_cast<uintptr_t>(ptr_to_payload) < global_stats.heap_min)
     {
@@ -63,13 +63,11 @@ void *m61_malloc(size_t sz, const char *file, long line)
     }
     if (reinterpret_cast<uintptr_t>(ptr_to_payload) >= global_stats.heap_max)
     {
-        global_stats.heap_max = reinterpret_cast<uintptr_t>(ptr_to_payload)+sz;
+        global_stats.heap_max = reinterpret_cast<uintptr_t>(ptr_to_payload) + sz;
     }
-     //assign pointer to place in memory where allocation_metadata struct lives
-     *ptr_to_block = allocation_metadata;
+    //assign pointer to place in memory where allocation_metadata struct lives
+    *ptr_to_block = allocation_metadata;
     //add to allocations list
-    
-    
 
     if (allocations.empty())
     {
@@ -90,11 +88,8 @@ void *m61_malloc(size_t sz, const char *file, long line)
 
     //test006
     global_stats.active_size += sz;
-    
-    
 
-
-    return (void*) ((char*)ptr_to_block + sizeof(meta));
+    return (void *)((char *)ptr_to_block + sizeof(meta));
 }
 
 /// m61_free(ptr, file, line)
@@ -107,41 +102,56 @@ void m61_free(void *ptr, const char *file, long line)
     (void)file, (void)line; // avoid uninitialized variable warnings
     // Your code here.
     //can't free nothing so
-    if(ptr == nullptr || ptr == NULL)
+    if (ptr == nullptr || ptr == NULL)
     {
         return;
     }
     //cast ptr to uintptr_t for math
-    meta* ptr_to_metadata = reinterpret_cast<meta*>(reinterpret_cast<uintptr_t>(ptr) - sizeof(meta));
+    meta *ptr_to_metadata = reinterpret_cast<meta *>(reinterpret_cast<uintptr_t>(ptr) - sizeof(meta));
     //ptr_to_metadata
-    
+
     //test016
-    if((uintptr_t)ptr < global_stats.heap_min ||
-    (uintptr_t)ptr > global_stats.heap_max)
+    if ((uintptr_t)ptr < global_stats.heap_min ||
+        (uintptr_t)ptr > global_stats.heap_max)
     {
         printf("MEMORY BUG %s:%li: invalid free of pointer %p, not in heap\n", file, line, ptr);
         return;
     }
-    //check if ptr passed is actually an addr we have
+    // lambda for searching our vector of allocations
+    auto valid_alloc = [](const meta &x) {
+        return x.alloc_addr;
+    };
     auto r = std::find_if(std::begin(allocations), std::end(allocations), valid_alloc);
+    //check to see if allocation is active and we exist in allocations list
+    //fixdes test020
+    if (ptr_to_metadata->active != 1 && r != std::end(allocations))
+    {
+        printf("MEMORY BUG %s:%li: invalid free of pointer %p, double free\n", file, line, ptr);
+        return;
+    }
+
+    //check if ptr passed is actually an addr we have
+    //storing ptr addresses we've used in a vector
+    
     if (r != std::end(allocations))
     {
-       //ptr is in our allocations vector
-    }else
+        // if not in allocations means we've freed so don't double free
+        //flip allocation active state
+        ptr_to_metadata->active = 0;
+        //test003 freeing an alloc means we need to remove it from our stats
+        global_stats.nactive--;
+        //test006 make sure to update active allocation size when freeing
+        global_stats.active_size -= ptr_to_metadata->size;
+        return;
+        //ptr is in our allocations vector
+    }
+    else
     {
         printf("MEMORY BUG %s:%li: invalid free of pointer %p, not allocated\n", file, line, ptr);
         return;
     }
-    
-    //check to see if allocation is active
-    if(ptr_to_metadata->active != 1)
-    {
-        printf("MEMORY BUG %s:%li: invalid free of pointer %p, double free\n", file, line, ptr);
-        return;
-        
-    }
-   
-    //flip allocation active state
+
+    //flip allocation active state to 0 = not active
     ptr_to_metadata->active = 0;
     //test003 freeing an alloc means we need to remove it from our stats
     global_stats.nactive--;
@@ -160,7 +170,7 @@ void *m61_calloc(size_t nmemb, size_t sz, const char *file, long line)
 {
     // Your code here (to fix test014).
 
-    if((nmemb * sz) / nmemb != sz)
+    if ((nmemb * sz) / nmemb != sz)
     {
         global_stats.nfail++;
         return nullptr;
