@@ -38,7 +38,7 @@ struct heavy_hitters_item{
     const char *file; 
     long line;      
     size_t size; 
-}
+};
 // std::list<m61_metadata> metadata_list;
 /// m61_statistics
 ///    Structure tracking memory statistics.

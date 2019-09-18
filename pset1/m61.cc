@@ -285,6 +285,15 @@ void m61_print_heavy_hitter_report()
     //track usage
     //only have to track orig request sz NOT METADATA
     //20% or more use total_size to help calc
+    
+    for(auto i = heavy_hitters_report_vector.begin(); i != heavy_hitters_report_vector.end(); ++i)
+    {
+        if(global_stats.total_size / i->size >= 20.0)
+        {
+            printf("asdf");
+        }
+    }
+    return;
     //sort in decending order ie higher lines first
     //print just like other reports using file and line numbers
 }
