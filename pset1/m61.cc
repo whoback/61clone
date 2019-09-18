@@ -291,24 +291,20 @@ void m61_print_heavy_hitter_report()
     //add first elem and then loop through each hitter item
     local_heavy_hitters.push_back(heavy_hitters_report_vector.front());
     assert(local_heavy_hitters.empty() == false);
-    for(int i = 0; i < (int)heavy_hitters_report_vector.size(); ++i)
+    for(int i = 1; i < (int)heavy_hitters_report_vector.size(); ++i)
     {
-        //if file
-        if(heavy_hitters_report_vector.at(i).file == local_heavy_hitters.back().file)
+        //if file and line are the same
+        if(heavy_hitters_report_vector.at(i).file == local_heavy_hitters.back().file &&
+        heavy_hitters_report_vector.at(i).line == local_heavy_hitters.back().line)
         {
+            //add the sizes
             local_heavy_hitters.back().size += heavy_hitters_report_vector.at(i).size;
         }
         else
         {
+            //we have a new addition to push to back
             local_heavy_hitters.push_back(heavy_hitters_report_vector.at(i));
         }
-        
-        // // if it meets our size req
-        // if(global_stats.total_size / i->size >= 20.0)
-        // {
-
-
-        // }
     }
     printf("line 313\n");
     assert(local_heavy_hitters.empty() == false);
