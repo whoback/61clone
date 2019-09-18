@@ -38,6 +38,11 @@ struct heavy_hitters_item{
     const char *file; 
     long line;      
     size_t size; 
+    //lets try a functor!
+    bool operator()(const heavy_hitters_item& x, const heavy_hitters_item& b) const
+    {
+        return x.size > b.size;
+    }
 };
 // std::list<m61_metadata> metadata_list;
 /// m61_statistics

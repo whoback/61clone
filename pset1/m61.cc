@@ -286,13 +286,44 @@ void m61_print_heavy_hitter_report()
     //only have to track orig request sz NOT METADATA
     //20% or more use total_size to help calc
     
+    std::vector<heavy_hitters_item> local_heavy_hitters = {};
+
+    //add first elem and then loop through each hitter item
+    local_heavy_hitters.push_back(heavy_hitters_report_vector.front());
+    assert(local_heavy_hitters.empty() == false);
     for(auto i = heavy_hitters_report_vector.begin(); i != heavy_hitters_report_vector.end(); ++i)
     {
-        if(global_stats.total_size / i->size >= 20.0)
+        //if file
+        if(i->file == local_heavy_hitters.back().file)
         {
-            printf("HEAVY HITTER: %s:%li: %zu bytes (~%llu)\n",i->file, i->line, i->size, (global_stats.total_size/i->size));
+            local_heavy_hitters.back().size += i->size;
         }
+        else
+        {
+            local_heavy_hitters.push_back(*i);
+        }
+        
+        // // if it meets our size req
+        // if(global_stats.total_size / i->size >= 20.0)
+        // {
+
+
+        // }
     }
+    printf("line 313\n");
+    assert(local_heavy_hitters.empty() == false);
+
+    //sort our new local_heavy_hitters container with a functor!
+    //std::sort(local_heavy_hitters.begin(), local_heavy_hitters.end(), heavy_hitters_item());
+    printf("sorting is good \n");
+    printf("vector item 0: %s\n", local_heavy_hitters.at(0).file);
+    printf("vector item 1: %s\n", local_heavy_hitters.at(1).file);
+    for (int i = 0; i < 2; ++i)
+    {
+        printf("Report: %s: %li: %lu bytes\n", local_heavy_hitters.at(i).file, local_heavy_hitters.at(i).line, local_heavy_hitters.at(i).size);
+    }
+        
+
     return;
     //sort in decending order ie higher lines first
     //print just like other reports using file and line numbers
