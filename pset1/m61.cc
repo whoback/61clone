@@ -107,21 +107,23 @@ void m61_free(void* ptr, const char* file, long line) {
     //need to subtract struct to get to metadata
     header* ptr_to_meta = (header*)((char*)ptr - sizeof(header)); 
     
+    //bitwise AND operation (0000 0000 0000 0111) checking to see if our ptr address is div by 8 
+    //if not then we know we're dealing with an unallocated call
     if((((uintptr_t) ptr & 7) != 0) || (ptr_to_meta->metadata_id != MAGIC_META_ID))
     {
       printf("MEMORY BUG: %s:%li: invalid free of pointer %p, not allocated\n", file, line, ptr);
-        
-        header* p = global_base.ptr_to_next;
-        while(p != nullptr)
+        //check to see if ptr is trying to free inside another heap block
+        header* bad_ptr = global_base.ptr_to_next;
+        while(bad_ptr != nullptr)
         {
-            if(ptr >= p && ptr <= (char*)p + sizeof(header) + p->size)
+            if(ptr >= bad_ptr && ptr <= (char*)bad_ptr + sizeof(header) + bad_ptr->size)
             {
-                size_t offset = (char*) ptr - ((char*) p + sizeof(header));
+                size_t offset = (char*) ptr - ((char*) bad_ptr + sizeof(header));
                  printf("  %s:%li: %p is %zu bytes inside a %lu byte region allocated here\n", 
-                 file, p->line, ptr, offset, p->size);            
+                 file, bad_ptr->line, ptr, offset, bad_ptr->size);            
                 break;
             }
-                p = p->ptr_to_next;
+                bad_ptr = bad_ptr->ptr_to_next;
         }
         return;
     }
