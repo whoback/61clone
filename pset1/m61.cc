@@ -51,6 +51,9 @@ void* m61_malloc(size_t sz, const char* file, long line) {
     //pointer to return 
     void* ptr = (void*)((char*)ptr_to_allocation + sizeof(header));
 
+    //trailer help
+    char* ptr_to_trailer = (char*)ptr + sz;
+    *ptr_to_trailer = '@';
 
     //heap min and max testing
     if(global_stats.heap_min == 0)
@@ -107,19 +110,37 @@ void m61_free(void* ptr, const char* file, long line) {
         return;
     }
 
+    // header* p = global_base.ptr_to_next;
+    // while(p != nullptr)
+    // {
+    //     if(ptr >= p && ptr <= (char*)p + sizeof(header) + p->size)
+    //     {
+
+    //     }
+    // }
+
+    //attempt to catch wild
+    char* ptr_to_trailer = (char*)ptr + ptr_to_meta->size;
+    if(*ptr_to_trailer != '@')
+    {
+        //we know our mem has been modified
+        printf("MEMORY BUG: %s:%li: invalid free of pointer %p, not allocated\n",file,line,ptr);
+
+    }
+
     // //list updoots
-    // if(ptr_to_meta->ptr_to_next != nullptr)
-    // {
-    //     ptr_to_meta->ptr_to_next->ptr_to_last = ptr_to_meta->ptr_to_last;
-    // }
-    //  if(ptr_to_meta->ptr_to_last != nullptr)
-    // {
-    //     ptr_to_meta->ptr_to_last->ptr_to_next = ptr_to_meta->ptr_to_next;
-    // }
-    // else
-    // {
-    //     global_base.ptr_to_next = ptr_to_meta->ptr_to_next;
-    // }
+    if(ptr_to_meta->ptr_to_next != nullptr)
+    {
+        ptr_to_meta->ptr_to_next->ptr_to_last = ptr_to_meta->ptr_to_last;
+    }
+     if(ptr_to_meta->ptr_to_last != nullptr)
+    {
+        ptr_to_meta->ptr_to_last->ptr_to_next = ptr_to_meta->ptr_to_next;
+    }
+    else
+    {
+        global_base.ptr_to_next = ptr_to_meta->ptr_to_next;
+    }
     global_stats.nactive--; 
     global_stats.active_size -= (ptr_to_meta->size);
     ptr_to_meta->is_active = 8008;
