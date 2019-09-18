@@ -56,9 +56,12 @@ void *m61_malloc(size_t sz, const char *file, long line)
     global_base.ptr_to_next = ptr_to_allocation;
 
     //pointer to return
+    //the actual requested data
     void *ptr = (void *)((char *)ptr_to_allocation + sizeof(header));
 
     //trailer help
+    //this is the ptr to requested data + the size that 
+    //gets us to the end of the total allocation to add
     char *ptr_to_trailer = (char *)ptr + sz;
     *ptr_to_trailer = '@';
 
