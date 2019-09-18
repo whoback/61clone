@@ -8,9 +8,8 @@
 
 
 m61_statistics global_stats = {0,0,0,0,0,0,0,0};
-struct header head = {};
-
-
+//this is our free list
+struct header global_base = {0,1337,nullptr,nullptr};
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then m61_malloc must
@@ -20,10 +19,7 @@ struct header head = {};
 void* m61_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
-    if(sz == 0)
-    {
-	    sz = 1;
-    }
+  
     //check to make sure size isn't too big
     if(sz >= ((size_t)-1-150))
     {
@@ -32,17 +28,35 @@ void* m61_malloc(size_t sz, const char* file, long line) {
 	    global_stats.fail_size += sz;
 	    return nullptr;
     }
-    struct header metadata = {};
-    metadata.size = sz;
-    metadata.is_active = 1;
     
+      //actual amount to return
+    size_t rounded_sz = (sz + sizeof(header) + sizeof(size_t) + 8);
+
+    struct header metadata = {};
+    metadata.size = sz; //originial requested size to be used by free
+    metadata.is_active = 1337; //this data is currently malloced
+    
+    //this inculdes meta + payload (user requested sz)
+    header* ptr_to_allocation = (header*)base_malloc(rounded_sz);
+    *ptr_to_allocation = metadata;
+    ptr_to_allocation->ptr_to_next = global_base.ptr_to_next;
+    ptr_to_allocation->ptr_to_last = &global_base;
+
+    if(global_base.ptr_to_next != nullptr)
+    {
+        global_base.ptr_to_next->ptr_to_last = ptr_to_allocation;
+    }
+    global_base.ptr_to_next = ptr_to_allocation;
+
+    //pointer to return 
+    void* ptr = (void*)((char*)ptr_to_allocation + sizeof(header));
 
     //update stats on sucess
     global_stats.ntotal++; //number of total allocations
     global_stats.total_size += sz; //total number of bytes in successful allocs
     global_stats.nactive++; //num of active allocs will need math(see free) 
     global_stats.active_size += sz;    
-    return base_malloc(sz);
+    return ptr;
 }
 
 
@@ -54,10 +68,31 @@ void* m61_malloc(size_t sz, const char* file, long line) {
 void m61_free(void* ptr, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
-
-    global_stats.nactive--; 
+    //null pointers are freeable
+    if(ptr == nullptr)
+    {
+        return;
+    }
+    //need to subtract struct to get to metadata
+    header* ptr_to_meta = (header*)((char*)ptr - sizeof(header)); 
     
-    base_free(ptr);
+    // //list updoots
+    // if(ptr_to_meta->ptr_to_next != nullptr)
+    // {
+    //     ptr_to_meta->ptr_to_next->ptr_to_last = ptr_to_meta->ptr_to_last;
+    // }
+    //  if(ptr_to_meta->ptr_to_last != nullptr)
+    // {
+    //     ptr_to_meta->ptr_to_last->ptr_to_next = ptr_to_meta->ptr_to_next;
+    // }
+    // else
+    // {
+    //     global_base.ptr_to_next = ptr_to_meta->ptr_to_next;
+    // }
+    global_stats.nactive--; 
+    global_stats.active_size -= (ptr_to_meta->size);
+    ptr_to_meta->is_active = 8008;
+    base_free(ptr_to_meta);
 }
 
 
@@ -70,6 +105,11 @@ void m61_free(void* ptr, const char* file, long line) {
 
 void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line) {
     // Your code here (to fix test014).
+    if((nmemb * sz / nmemb) != sz)
+    {
+        global_stats.nfail++;
+        return nullptr;
+    }
     void* ptr = m61_malloc(nmemb * sz, file, line);
     if (ptr) {
         memset(ptr, 0, nmemb * sz);
