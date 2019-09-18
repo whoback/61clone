@@ -90,6 +90,13 @@ void m61_free(void* ptr, const char* file, long line) {
     {
         return;
     }
+
+    //are we in el heap?
+    if((uintptr_t)ptr < global_stats.heap_min || (uintptr_t)ptr > global_stats.heap_max)
+    {
+        printf("MEMORY BUG %s:%li: invalid free of pointer %p, not in heap\n", file, line, ptr);
+        return;
+    }
     //need to subtract struct to get to metadata
     header* ptr_to_meta = (header*)((char*)ptr - sizeof(header)); 
     
