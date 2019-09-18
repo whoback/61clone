@@ -22,7 +22,7 @@ void m61_free(void* ptr, const char* file, long line);
 ///    should be initialized to zero.
 void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 
-// metadata map TODO
+// metadata map 
 struct header{
     size_t size; //user requested size 'payload'
 	int is_active; //is this alloc active? 1337 = active 8008 = inactive
@@ -33,6 +33,12 @@ struct header{
     long line; // for leak preort
 };
 
+//struct for collecting heavy hitters data
+struct heavy_hitters_item{
+    const char *file; 
+    long line;      
+    size_t size; 
+}
 // std::list<m61_metadata> metadata_list;
 /// m61_statistics
 ///    Structure tracking memory statistics.

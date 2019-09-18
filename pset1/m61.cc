@@ -5,11 +5,15 @@
 #include <cstdio>
 #include <cinttypes>
 #include <cassert>
+#include <vector> //for heavy hitters
+#include <algorithm> //for heavy hitters
 #define MAGIC_META_ID 4206969
 
 m61_statistics global_stats = {0, 0, 0, 0, 0, 0, 0, 0};
 //this is our free list
 struct header global_base = {0, 1337, 0, nullptr, nullptr, NULL, 0};
+//contains all of our heavy_hitter_item from each allocation
+std::vector<heavy_hitters_item> heavy_hitters_report_vector;
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then m61_malloc must
@@ -41,6 +45,12 @@ void *m61_malloc(size_t sz, const char *file, long line)
     //updates for leak report
     metadata.file = file;
     metadata.line = line;
+
+    //create and store info for heavey hitters report
+    heavy_hitters_item hitter_item = {};
+    hitter_item.file = file;
+    hitter_item.line = line;
+    hitter_item.size = sz;
 
     //this inculdes meta + payload (user requested sz)
     header *ptr_to_allocation = (header *)base_malloc(rounded_sz);
@@ -85,6 +95,8 @@ void *m61_malloc(size_t sz, const char *file, long line)
     global_stats.total_size += sz;  //total number of bytes in successful allocs
     global_stats.nactive++;         //num of active allocs
     global_stats.active_size += sz; //active minus freed allocation sizes in bytes
+    //update for heavy hitters report
+    heavy_hitters_report_vector.push_back(hitter_item);
     return ptr;
 }
 
