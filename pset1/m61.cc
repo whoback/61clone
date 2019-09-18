@@ -100,6 +100,13 @@ void m61_free(void* ptr, const char* file, long line) {
     //need to subtract struct to get to metadata
     header* ptr_to_meta = (header*)((char*)ptr - sizeof(header)); 
     
+    //check to see if we've already freed 
+    if(ptr_to_meta->is_active == 8008)
+    {
+        printf("MEMORY BUG: invalid free of pointer %p, double free\n", ptr);
+        return;
+    }
+
     // //list updoots
     // if(ptr_to_meta->ptr_to_next != nullptr)
     // {
