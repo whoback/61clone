@@ -8,6 +8,9 @@
 
 
 m61_statistics global_stats = {0,0,0,0,0,0,0,0};
+struct header head = {};
+
+
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then m61_malloc must
@@ -17,9 +20,28 @@ m61_statistics global_stats = {0,0,0,0,0,0,0,0};
 void* m61_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
+    if(sz == 0)
+    {
+	    sz = 1;
+    }
+    //check to make sure size isn't too big
+    if(sz >= ((size_t)-1-150))
+    {
+	    //if it is fail and update stats accordingly
+	    global_stats.nfail++; //number of total failed allocs
+	    global_stats.fail_size += sz;
+	    return nullptr;
+    }
+    struct header metadata = {};
+    metadata.size = sz;
+    metadata.is_active = 1;
+    
+
+    //update stats on sucess
     global_stats.ntotal++; //number of total allocations
     global_stats.total_size += sz; //total number of bytes in successful allocs
-    global_stats.nactive++; //num of active allocs will need math TODO 
+    global_stats.nactive++; //num of active allocs will need math(see free) 
+    global_stats.active_size += sz;    
     return base_malloc(sz);
 }
 

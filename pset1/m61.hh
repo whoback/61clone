@@ -23,14 +23,12 @@ void m61_free(void* ptr, const char* file, long line);
 void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 
 // metadata map TODO
-struct meta{
+struct header{
     size_t size; //user requested size 'payload'
-    int is_active; //is this alloc active? 1 = active 0 = inactive
-    //uintptr_t alloc_addr; may not use
-    struct meta* ptr_to_next; //pointer to next structure in list
-};
-
-
+	int is_active; //is this alloc active? 1 = active 0 = inactive
+	    //uintptr_t alloc_addr; may not use
+	struct header* ptr_to_next; //pointer to next structure in list
+}__attribute__((aligned(16)));
 
 // std::list<m61_metadata> metadata_list;
 /// m61_statistics
