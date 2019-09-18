@@ -267,4 +267,9 @@ void m61_print_heavy_hitter_report()
 {
     // Your heavy-hitters code here
     //TODO
+    //track usage
+    //only have to track orig request sz NOT METADATA
+    //20% or more use total_size to help calc
+    //sort in decending order ie higher lines first
+    //print just like other reports using file and line numbers
 }
