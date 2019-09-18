@@ -5,11 +5,11 @@
 #include <cstdio>
 #include <cinttypes>
 #include <cassert>
-
+#define MAGIC_META_ID 4206969
 
 m61_statistics global_stats = {0,0,0,0,0,0,0,0};
 //this is our free list
-struct header global_base = {0,1337,nullptr,nullptr};
+struct header global_base = {0,1337,0,nullptr,nullptr};
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then m61_malloc must
@@ -35,6 +35,7 @@ void* m61_malloc(size_t sz, const char* file, long line) {
     struct header metadata = {};
     metadata.size = sz; //originial requested size to be used by free
     metadata.is_active = 1337; //this data is currently malloced
+    metadata.metadata_id = MAGIC_META_ID;
     
     //this inculdes meta + payload (user requested sz)
     header* ptr_to_allocation = (header*)base_malloc(rounded_sz);
@@ -104,31 +105,40 @@ void m61_free(void* ptr, const char* file, long line) {
     header* ptr_to_meta = (header*)((char*)ptr - sizeof(header)); 
     
     //check to see if we've already freed 
-    if(ptr_to_meta->is_active == 8008)
+    if(ptr_to_meta->is_active == 8008 && ptr_to_meta->metadata_id == MAGIC_META_ID)
     {
         printf("MEMORY BUG: invalid free of pointer %p, double free\n", ptr);
         return;
     }
+     
 
-    // header* p = global_base.ptr_to_next;
-    // while(p != nullptr)
-    // {
-    //     if(ptr >= p && ptr <= (char*)p + sizeof(header) + p->size)
-    //     {
-
-    //     }
-    // }
-
-    //attempt to catch wild
+    if((((uintptr_t) ptr & 7) != 0) || (ptr_to_meta->metadata_id != MAGIC_META_ID)){
+      printf("MEMORY BUG: %s:%li: invalid free of pointer %p, not allocated\n", file, line, ptr);
+        header* p = global_base.ptr_to_next;
+        while(p != nullptr)
+        {
+            if(ptr >= p && ptr <= (char*)p + sizeof(header) + p->size)
+            {
+                unsigned long offset = (char*) ptr - ((char*) p + sizeof(header));
+                printf("asdf");             
+                break;
+            }
+                p = p->ptr_to_next;
+            }
+        return;
+    }
+      
+//attempt to catch wild
     char* ptr_to_trailer = (char*)ptr + ptr_to_meta->size;
     if(*ptr_to_trailer != '@')
     {
         //we know our mem has been modified
-        printf("MEMORY BUG: %s:%li: invalid free of pointer %p, not allocated\n",file,line,ptr);
-
+        printf("MEMORY BUG: %s:%li: detected wild write during free of pointer %p\n",file,line,ptr);
+        return;
     }
 
-    // //list updoots
+   
+    //list updoots
     if(ptr_to_meta->ptr_to_next != nullptr)
     {
         ptr_to_meta->ptr_to_next->ptr_to_last = ptr_to_meta->ptr_to_last;
@@ -141,9 +151,13 @@ void m61_free(void* ptr, const char* file, long line) {
     {
         global_base.ptr_to_next = ptr_to_meta->ptr_to_next;
     }
+
+    //stat updoots
     global_stats.nactive--; 
     global_stats.active_size -= (ptr_to_meta->size);
     ptr_to_meta->is_active = 8008;
+
+    //free it
     base_free(ptr_to_meta);
 }
 

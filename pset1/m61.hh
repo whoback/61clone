@@ -26,9 +26,10 @@ void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 struct header{
     size_t size; //user requested size 'payload'
 	int is_active; //is this alloc active? 1337 = active 8008 = inactive
-	    //uintptr_t alloc_addr; may not use
+	int metadata_id;
 	struct header* ptr_to_next; //pointer to next structure in list
     struct header* ptr_to_last; //pointer to last structure in list "circular" list
+
 };
 
 // std::list<m61_metadata> metadata_list;
