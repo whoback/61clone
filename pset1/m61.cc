@@ -19,7 +19,10 @@ std::vector<heavy_hitters_item> heavy_hitters_report_vector;
 ///    The memory is not initialized. If `sz == 0`, then m61_malloc must
 ///    return a unique, newly-allocated pointer value. The allocation
 ///    request was at location `file`:`line`.
-
+bool cus_cmp(const heavy_hitters_item& x, const heavy_hitters_item& y)
+{
+    return x.line < y.line;
+}
 void *m61_malloc(size_t sz, const char *file, long line)
 {
     (void)file, (void)line; // avoid uninitialized variable warnings
@@ -301,32 +304,42 @@ void m61_print_heavy_hitter_report()
     // };
     //add first elem and then loop through each hitter item
     local_heavy_hitters.push_back(heavy_hitters_report_vector.front());
+    std::sort(heavy_hitters_report_vector.begin(), heavy_hitters_report_vector.end(), cus_cmp);
     
     for(int i = 1; i < (int)heavy_hitters_report_vector.size(); ++i)
     {
-        //if file and line are the same
-        if(heavy_hitters_report_vector.at(i).file == local_heavy_hitters.back().file &&
-        heavy_hitters_report_vector.at(i).line == local_heavy_hitters.back().line)
-        {
-            //add the sizes
-            local_heavy_hitters.back().size += heavy_hitters_report_vector.at(i).size;
-        }
-        else
-        {
-            //we have a new addition to push to back
-            
-            local_heavy_hitters.push_back(heavy_hitters_report_vector.at(i));
-        }
+        
+            //if file and line are the same
+            if (heavy_hitters_report_vector.at(i).file == local_heavy_hitters.back().file &&
+                heavy_hitters_report_vector.at(i).line == local_heavy_hitters.back().line)
+            {
+                //add the sizes
+                local_heavy_hitters.back().size += heavy_hitters_report_vector.at(i).size;
+            }
+            else
+            {
+                //we have a new addition to push to back
+
+                local_heavy_hitters.push_back(heavy_hitters_report_vector.at(i));
+            }
+        
     }
     //sort our new local_heavy_hitters container with a functor!
     std::sort(local_heavy_hitters.begin(), local_heavy_hitters.end(), heavy_hitters_item());
-    printf("Total: %lu \n", heavy_hitters_report_vector.size());
-    printf("Local: %lu\n", local_heavy_hitters.size());
-    for (int i = 0; i < 20; ++i)
+    printf("total_size bytes: %llu\n", global_stats.total_size);
+
+    for (int i = 20; i != 0; --i)
     {
-        printf("HEAVY HITTER: %s:%li: %lu bytes\n", local_heavy_hitters.at(i).file, local_heavy_hitters.at(i).line, local_heavy_hitters.at(i).size);
-    }
-        
+        double calc_heavy_hitter_percent = (global_stats.total_size / local_heavy_hitters.at(i).size);
+        if (calc_heavy_hitter_percent >= 20 && calc_heavy_hitter_percent <= 100)
+        {
+            printf("HEAVY HITTER: %s:%li: %lu bytes(~%4.2f%%)\n",
+                       local_heavy_hitters.at(i).file,
+                       local_heavy_hitters.at(i).line,
+                       local_heavy_hitters.at(i).size,
+                       calc_heavy_hitter_percent);
+        }
+    }    
 
     return;
     //sort in decending order ie higher lines first

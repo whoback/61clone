@@ -39,9 +39,9 @@ struct heavy_hitters_item{
     long line;      
     size_t size; 
     //lets try a functor!
-    bool operator()(const heavy_hitters_item& x, const heavy_hitters_item& b) const
+    bool operator()(const heavy_hitters_item& x, const heavy_hitters_item& y) const
     {
-        return x.size > b.size;
+        return x.size > y.size;
     }
 };
 // std::list<m61_metadata> metadata_list;
