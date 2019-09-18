@@ -51,6 +51,23 @@ void* m61_malloc(size_t sz, const char* file, long line) {
     //pointer to return 
     void* ptr = (void*)((char*)ptr_to_allocation + sizeof(header));
 
+
+    //heap min and max testing
+    if(global_stats.heap_min == 0)
+    {   
+        global_stats.heap_min = (uintptr_t)ptr;
+    }
+    if(global_stats.heap_max <= (uintptr_t)ptr)
+    {
+        global_stats.heap_max = (uintptr_t)ptr + sz;
+    }
+
+    if(global_stats.heap_min > (uintptr_t)ptr)
+    {
+        global_stats.heap_min = (uintptr_t)ptr;
+    }
+
+    
     //update stats on sucess
     global_stats.ntotal++; //number of total allocations
     global_stats.total_size += sz; //total number of bytes in successful allocs
