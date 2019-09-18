@@ -29,7 +29,8 @@ struct header{
 	int metadata_id;
 	struct header* ptr_to_next; //pointer to next structure in list
     struct header* ptr_to_last; //pointer to last structure in list "circular" list
-
+    const char* file; // for leak report
+    long line; // for leak preort
 };
 
 // std::list<m61_metadata> metadata_list;
