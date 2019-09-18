@@ -290,7 +290,7 @@ void m61_print_heavy_hitter_report()
     {
         if(global_stats.total_size / i->size >= 20.0)
         {
-            printf("asdf");
+            printf("HEAVY HITTER: %s:%li: %zu bytes (~%llu)\n",i->file, i->line, i->size, (global_stats.total_size/i->size));
         }
     }
     return;
