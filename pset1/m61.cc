@@ -287,7 +287,18 @@ void m61_print_heavy_hitter_report()
     //20% or more use total_size to help calc
     
     std::vector<heavy_hitters_item> local_heavy_hitters = {};
-
+    // FOR REF
+    // struct heavy_hitters_item
+    // {
+    //     const char *file;
+    //     long line;
+    //     size_t size;
+    //     //lets try a functor!
+    //     bool operator()(const heavy_hitters_item &x, const heavy_hitters_item &b) const
+    //     {
+    //         return x.size > b.size;
+    //     }
+    // };
     //add first elem and then loop through each hitter item
     local_heavy_hitters.push_back(heavy_hitters_report_vector.front());
     
@@ -303,15 +314,17 @@ void m61_print_heavy_hitter_report()
         else
         {
             //we have a new addition to push to back
+            
             local_heavy_hitters.push_back(heavy_hitters_report_vector.at(i));
         }
     }
     //sort our new local_heavy_hitters container with a functor!
-    //std::sort(local_heavy_hitters.begin(), local_heavy_hitters.end(), heavy_hitters_item());
-
-    for (int i = 0; i < 2; ++i)
+    std::sort(local_heavy_hitters.begin(), local_heavy_hitters.end(), heavy_hitters_item());
+    printf("Total: %lu \n", heavy_hitters_report_vector.size());
+    printf("Local: %lu\n", local_heavy_hitters.size());
+    for (int i = 0; i < 20; ++i)
     {
-        printf("Report: %s: %li: %lu bytes\n", local_heavy_hitters.at(i).file, local_heavy_hitters.at(i).line, local_heavy_hitters.at(i).size);
+        printf("HEAVY HITTER: %s:%li: %lu bytes\n", local_heavy_hitters.at(i).file, local_heavy_hitters.at(i).line, local_heavy_hitters.at(i).size);
     }
         
 
