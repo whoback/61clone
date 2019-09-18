@@ -291,16 +291,16 @@ void m61_print_heavy_hitter_report()
     //add first elem and then loop through each hitter item
     local_heavy_hitters.push_back(heavy_hitters_report_vector.front());
     assert(local_heavy_hitters.empty() == false);
-    for(auto i = heavy_hitters_report_vector.begin(); i != heavy_hitters_report_vector.end(); ++i)
+    for(int i = 0; i < (int)heavy_hitters_report_vector.size(); ++i)
     {
         //if file
-        if(i->file == local_heavy_hitters.back().file)
+        if(heavy_hitters_report_vector.at(i).file == local_heavy_hitters.back().file)
         {
-            local_heavy_hitters.back().size += i->size;
+            local_heavy_hitters.back().size += heavy_hitters_report_vector.at(i).size;
         }
         else
         {
-            local_heavy_hitters.push_back(*i);
+            local_heavy_hitters.push_back(heavy_hitters_report_vector.at(i));
         }
         
         // // if it meets our size req
