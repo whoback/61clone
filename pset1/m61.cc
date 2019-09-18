@@ -290,7 +290,7 @@ void m61_print_heavy_hitter_report()
 
     //add first elem and then loop through each hitter item
     local_heavy_hitters.push_back(heavy_hitters_report_vector.front());
-    assert(local_heavy_hitters.empty() == false);
+    
     for(int i = 1; i < (int)heavy_hitters_report_vector.size(); ++i)
     {
         //if file and line are the same
@@ -306,14 +306,9 @@ void m61_print_heavy_hitter_report()
             local_heavy_hitters.push_back(heavy_hitters_report_vector.at(i));
         }
     }
-    printf("line 313\n");
-    assert(local_heavy_hitters.empty() == false);
-
     //sort our new local_heavy_hitters container with a functor!
     //std::sort(local_heavy_hitters.begin(), local_heavy_hitters.end(), heavy_hitters_item());
-    printf("sorting is good \n");
-    printf("vector item 0: %s\n", local_heavy_hitters.at(0).file);
-    printf("vector item 1: %s\n", local_heavy_hitters.at(1).file);
+
     for (int i = 0; i < 2; ++i)
     {
         printf("Report: %s: %li: %lu bytes\n", local_heavy_hitters.at(i).file, local_heavy_hitters.at(i).line, local_heavy_hitters.at(i).size);
