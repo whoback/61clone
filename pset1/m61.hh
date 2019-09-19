@@ -29,7 +29,7 @@ void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 ///    behaves like `m61_free(ptr, file, line)`. The allocation request
 ///    was at location `file`:`line`.
 
-void *m61_realloc(void *ptr, size_t sz, const char *file, long line);
+void* m61_realloc(void* ptr, size_t sz, const char* file, long line);
 
 // metadata map 
 struct header{

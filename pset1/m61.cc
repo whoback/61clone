@@ -236,11 +236,35 @@ void *m61_calloc(size_t nmemb, size_t sz, const char *file, long line)
 ///    behaves like `m61_free(ptr, file, line)`. The allocation request
 ///    was at location `file`:`line`.
 
-void *m61_realloc(void *ptr, size_t sz, const char *file, long line)
+void* m61_realloc(void* ptr, size_t sz, const char* file, long line)
 {
-    return;
+    if(ptr == nullptr)
+    {
+        void* ptr_to_return = m61_malloc(sz, file, line);
+        return ptr_to_return;
+    }
+    if(sz == 0)
+    {
+        m61_free(ptr, file, line);
+        return ptr;
+    }
+    //request new memory of size sz
+    void* ptr_to_new_mem = m61_malloc(sz,file,line);
+    //get to our metadata so we can recover original size
+    header *ptr_to_meta = (header *)((char *)ptr - sizeof(header));
+    size_t original_size = ptr_to_meta->size;
+    //copy original stuff to new allocation
+    ptr_to_new_mem = std::memcpy(ptr_to_new_mem, ptr, original_size);
+
+    //free orig memory
+    m61_free(ptr,file,line);
+    return ptr_to_new_mem;
 }
+
 /// m61_get_statistics(stats)
+
+
+
 ///    Store the current memory statistics in `*stats`.
 
 void m61_get_statistics(m61_statistics *stats)
