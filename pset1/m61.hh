@@ -96,6 +96,8 @@ void base_allocator_disable(bool is_disabled);
 #define malloc(sz)          m61_malloc((sz), __FILE__, __LINE__)
 #define free(ptr)           m61_free((ptr), __FILE__, __LINE__)
 #define calloc(nmemb, sz)   m61_calloc((nmemb), (sz), __FILE__, __LINE__)
+#define realloc(ptr, new_sz) m61_realloc((ptr), (new_sz), __FILE__, __LINE__)
+
 #endif
 
 

@@ -174,7 +174,7 @@ void m61_free(void *ptr, const char *file, long line)
         }
     }
 
-    //attempt to catch wild - taken from class answer at begining of last lecture thanks James?
+    //taken from class answer at begining of last lecture thanks James?
     char *ptr_to_trailer = (char *)ptr + ptr_to_meta->size;
     if (*ptr_to_trailer != '@')
     {
