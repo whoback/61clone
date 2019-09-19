@@ -3,15 +3,23 @@ Author and collaborators
 
 Primary student
 ---------------
-(Your name.)
+William Hoback
 
 
 Collaborators
 -------------
-(List any other collaborators and describe help you got from other students
-in the class.)
+OHs with Garrett
+OHs with Mike
 
 
 Citations
 ---------
-(List any other sources consulted.)
+opendatastructures
+phrack magazine
+stackoverflow
+CS:APP3 (CS61 book)
+CS61 notes / website
+literally 1000 youtube videos on memory / pointers / allocations
+cppreference
+piazza question/answers
+linked papers on tmalloc /jemalloc etc... 
