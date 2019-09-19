@@ -7,6 +7,7 @@
 #include <new>
 #include <list>
 #include <stdlib.h>
+#define MAGIC_META_ID 4206969
 
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.

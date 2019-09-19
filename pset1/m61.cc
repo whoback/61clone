@@ -156,19 +156,24 @@ void m61_free(void *ptr, const char *file, long line)
         return;
     }
     //test0023
+    //if our metadata's ptr_to_next is not a nullptr 
     if (ptr_to_meta->ptr_to_next != nullptr)
     {
+        //and our metadat's ptr_to_next's ptr_to_last isn't pointing at our metadata
         if (ptr_to_meta->ptr_to_next->ptr_to_last != ptr_to_meta)
         {
+            //we know this allocation isn't in our list
             printf("MEMORY BUG: %s:%li: invalid free of pointer %p, not allocated\n", file, line, ptr);
             return;
         }
     }
-
+    //if our metadata's ptr_to_last is not a nullptr
     if (ptr_to_meta->ptr_to_last != nullptr)
-    {
+    { 
+        //and our metadat's ptr_to_last's ptr_to_next isn't pointing at our metadata
         if (ptr_to_meta->ptr_to_last->ptr_to_next != ptr_to_meta)
         {
+            //we know this allocation isn't in our list
             printf("MEMORY BUG: %s: %li: invalid free of pointer %p, not allocated\n", file, line, ptr);
             return;
         }
