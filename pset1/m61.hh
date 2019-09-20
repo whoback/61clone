@@ -9,9 +9,13 @@
 #include <stdlib.h>
 #define MAGIC_META_ID 4206969
 
+
+//custom compare function def
+bool cus_cmp(const heavy_hitters_item &x, const heavy_hitters_item &y);
+
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
-void* m61_malloc(size_t sz, const char* file, long line);
+void *m61_malloc(size_t sz, const char *file, long line);
 
 /// m61_free(ptr, file, line)
 ///    Free the memory space pointed to by `ptr`.
@@ -36,7 +40,7 @@ void* m61_realloc(void* ptr, size_t sz, const char* file, long line);
 struct header{
     size_t size; //user requested size 'payload'
 	int is_active; //is this alloc active? 1337 = active 8008 = inactive
-	int metadata_id;
+	int metadata_id; //used to id actual metadata
 	struct header* ptr_to_next; //pointer to next structure in list
     struct header* ptr_to_last; //pointer to last structure in list "circular" list
     const char* file; // for leak report
@@ -45,17 +49,16 @@ struct header{
 
 //struct for collecting heavy hitters data
 struct heavy_hitters_item{
-    const char *file; 
-    long line;      
-    size_t size; 
-    //lets try a functor!
+    const char *file;  //for reporting
+    long line;      //for reporting
+    size_t size; //size of item
+    //lets try a functor! simple comparison returns t/f 
     bool operator()(const heavy_hitters_item& x, const heavy_hitters_item& y) const
     {
         return x.size > y.size;
     }
 };
-// std::list<m61_metadata> metadata_list;
-/// m61_statistics
+
 ///    Structure tracking memory statistics.
 struct m61_statistics {
     unsigned long long nactive;         // # active allocations
