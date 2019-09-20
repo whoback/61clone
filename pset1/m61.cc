@@ -373,23 +373,18 @@ void m61_print_heavy_hitter_report()
     //sort our new local_heavy_hitters container with a functor!
     //sorts by size
     std::sort(local_heavy_hitters.begin(), local_heavy_hitters.end(), heavy_hitters_item());
-    printf("total_size bytes: %llu\n", global_stats.total_size);
-    double sum_of_calc_percent = 0;
-    for (int i = 0; sum_of_calc_percent <= 100; ++i)
+    printf("total_size called: %llu bytes in %llu allocations\n", global_stats.total_size, global_stats.ntotal);
+    int sum_of_calc_percent = 0;
+    for (int i = 0; i<5; ++i)
     {
         double calc_heavy_hitter_percent = (((double)local_heavy_hitters.at(i).size / (double) global_stats.total_size) * 100.0);
-        sum_of_calc_percent += calc_heavy_hitter_percent;
-        
+        sum_of_calc_percent += (int)calc_heavy_hitter_percent;
         
             printf("HEAVY HITTER: %s:%li: %lu bytes(~%4.2f%%)\n",
                        local_heavy_hitters.at(i).file,
                        local_heavy_hitters.at(i).line,
                        local_heavy_hitters.at(i).size,
                        calc_heavy_hitter_percent);
-        
-    }    
-
+        }    
     return;
-    //sort in decending order ie higher lines first
-    //print just like other reports using file and line numbers
 }
