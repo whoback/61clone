@@ -9,6 +9,43 @@
 #include <stdlib.h>
 #define MAGIC_META_ID 4206969
 
+// metadata map
+struct header
+{
+    size_t size;                //user requested size 'payload'
+    int is_active;              //is this alloc active? 1337 = active 8008 = inactive
+    int metadata_id;            //used to id actual metadata
+    struct header *ptr_to_next; //pointer to next structure in list
+    struct header *ptr_to_last; //pointer to last structure in list "circular" list
+    const char *file;           // for leak report
+    long line;                  // for leak preort
+};
+
+//struct for collecting heavy hitters data
+struct heavy_hitters_item
+{
+    const char *file; //for reporting
+    long line;        //for reporting
+    size_t size;      //size of item
+    //lets try a functor! simple comparison returns t/f
+    bool operator()(const heavy_hitters_item &x, const heavy_hitters_item &y) const
+    {
+        return x.size > y.size;
+    }
+};
+
+///    Structure tracking memory statistics.
+struct m61_statistics
+{
+    unsigned long long nactive;     // # active allocations
+    unsigned long long active_size; // # bytes in active allocations
+    unsigned long long ntotal;      // # total allocations
+    unsigned long long total_size;  // # bytes in total allocations
+    unsigned long long nfail;       // # failed allocation attempts
+    unsigned long long fail_size;   // # bytes in failed alloc attempts
+    uintptr_t heap_min;             // smallest allocated addr
+    uintptr_t heap_max;             // largest allocated addr
+};
 
 //custom compare function def
 bool cus_cmp(const heavy_hitters_item &x, const heavy_hitters_item &y);
@@ -35,42 +72,6 @@ void* m61_calloc(size_t nmemb, size_t sz, const char* file, long line);
 ///    was at location `file`:`line`.
 
 void* m61_realloc(void* ptr, size_t sz, const char* file, long line);
-
-// metadata map 
-struct header{
-    size_t size; //user requested size 'payload'
-	int is_active; //is this alloc active? 1337 = active 8008 = inactive
-	int metadata_id; //used to id actual metadata
-	struct header* ptr_to_next; //pointer to next structure in list
-    struct header* ptr_to_last; //pointer to last structure in list "circular" list
-    const char* file; // for leak report
-    long line; // for leak preort
-};
-
-//struct for collecting heavy hitters data
-struct heavy_hitters_item{
-    const char *file;  //for reporting
-    long line;      //for reporting
-    size_t size; //size of item
-    //lets try a functor! simple comparison returns t/f 
-    bool operator()(const heavy_hitters_item& x, const heavy_hitters_item& y) const
-    {
-        return x.size > y.size;
-    }
-};
-
-///    Structure tracking memory statistics.
-struct m61_statistics {
-    unsigned long long nactive;         // # active allocations
-    unsigned long long active_size;     // # bytes in active allocations
-    unsigned long long ntotal;          // # total allocations
-    unsigned long long total_size;      // # bytes in total allocations
-    unsigned long long nfail;           // # failed allocation attempts
-    unsigned long long fail_size;       // # bytes in failed alloc attempts
-    uintptr_t heap_min;                 // smallest allocated addr
-    uintptr_t heap_max;                 // largest allocated addr
-};
-
 
 /// m61_get_statistics(stats)
 ///    Store the current memory statistics in `*stats`.

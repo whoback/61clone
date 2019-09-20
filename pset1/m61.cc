@@ -7,6 +7,7 @@
 #include <cassert>
 #include <vector> //for heavy hitters
 #include <algorithm> //for heavy hitters
+#include<set>
 #define MAGIC_META_ID 4206969
 
 m61_statistics global_stats = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -14,15 +15,17 @@ m61_statistics global_stats = {0, 0, 0, 0, 0, 0, 0, 0};
 struct header global_base = {0, 1337, 0, nullptr, nullptr, NULL, 0};
 //contains all of our heavy_hitter_item from each allocation
 std::vector<heavy_hitters_item> heavy_hitters_report_vector;
+//compares line numbers in heavy_hitter_items
+bool cus_cmp(const heavy_hitters_item& x, const heavy_hitters_item& y)
+{
+    return x.line < y.line;
+}
+
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then m61_malloc must
 ///    return a unique, newly-allocated pointer value. The allocation
 ///    request was at location `file`:`line`.
-bool cus_cmp(const heavy_hitters_item& x, const heavy_hitters_item& y)
-{
-    return x.line < y.line;
-}
 void *m61_malloc(size_t sz, const char *file, long line)
 {
     (void)file, (void)line; // avoid uninitialized variable warnings
@@ -342,9 +345,12 @@ void m61_print_heavy_hitter_report()
     //         return x.size > b.size;
     //     }
     // };
+    
+    //sorts by line number
+    std::sort(heavy_hitters_report_vector.begin(), heavy_hitters_report_vector.end(), cus_cmp);
+
     //add first elem and then loop through each hitter item
     local_heavy_hitters.push_back(heavy_hitters_report_vector.front());
-    std::sort(heavy_hitters_report_vector.begin(), heavy_hitters_report_vector.end(), cus_cmp);
     
     for(int i = 1; i < (int)heavy_hitters_report_vector.size(); ++i)
     {
@@ -365,20 +371,22 @@ void m61_print_heavy_hitter_report()
         
     }
     //sort our new local_heavy_hitters container with a functor!
+    //sorts by size
     std::sort(local_heavy_hitters.begin(), local_heavy_hitters.end(), heavy_hitters_item());
     printf("total_size bytes: %llu\n", global_stats.total_size);
-
-    for (int i = 20; i != 0; --i)
+    double sum_of_calc_percent = 0;
+    for (int i = 0; sum_of_calc_percent <= 100; ++i)
     {
-        double calc_heavy_hitter_percent = (global_stats.total_size / local_heavy_hitters.at(i).size);
-        if (calc_heavy_hitter_percent >= 20 && calc_heavy_hitter_percent <= 100)
-        {
+        double calc_heavy_hitter_percent = (((double)local_heavy_hitters.at(i).size / (double) global_stats.total_size) * 100.0);
+        sum_of_calc_percent += calc_heavy_hitter_percent;
+        
+        
             printf("HEAVY HITTER: %s:%li: %lu bytes(~%4.2f%%)\n",
                        local_heavy_hitters.at(i).file,
                        local_heavy_hitters.at(i).line,
                        local_heavy_hitters.at(i).size,
                        calc_heavy_hitter_percent);
-        }
+        
     }    
 
     return;
