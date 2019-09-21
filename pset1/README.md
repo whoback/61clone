@@ -13,3 +13,4 @@ test040.cc added to test realloc implementation
 Extra credit attempted (if any)
 -------------------------------
 realloc implementation 
+ASan write up see `SANITIZER.md`
