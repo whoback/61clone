@@ -5,9 +5,8 @@
 #include <cstdio>
 #include <cinttypes>
 #include <cassert>
-#include <vector> //for heavy hitters
+#include <vector>    //for heavy hitters
 #include <algorithm> //for heavy hitters
-#include<set>
 #define MAGIC_META_ID 4206969
 
 m61_statistics global_stats = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -16,7 +15,7 @@ struct header global_base = {0, 1337, 0, nullptr, nullptr, NULL, 0};
 //contains all of our heavy_hitter_item from each allocation
 std::vector<heavy_hitters_item> heavy_hitters_report_vector;
 //compares line numbers in heavy_hitter_items
-bool cus_cmp(const heavy_hitters_item& x, const heavy_hitters_item& y)
+bool cus_cmp(const heavy_hitters_item &x, const heavy_hitters_item &y)
 {
     return x.line < y.line;
 }
@@ -76,7 +75,7 @@ void *m61_malloc(size_t sz, const char *file, long line)
     void *ptr = (void *)((char *)ptr_to_allocation + sizeof(header));
 
     //trailer help
-    //this is the ptr to requested data + the size that 
+    //this is the ptr to requested data + the size that
     //gets us to the end of the total allocation to add
     char *ptr_to_trailer = (char *)ptr + sz;
     *ptr_to_trailer = '@';
@@ -159,7 +158,7 @@ void m61_free(void *ptr, const char *file, long line)
         return;
     }
     //test0023
-    //if our metadata's ptr_to_next is not a nullptr 
+    //if our metadata's ptr_to_next is not a nullptr
     if (ptr_to_meta->ptr_to_next != nullptr)
     {
         //and our metadat's ptr_to_next's ptr_to_last isn't pointing at our metadata
@@ -172,7 +171,7 @@ void m61_free(void *ptr, const char *file, long line)
     }
     //if our metadata's ptr_to_last is not a nullptr
     if (ptr_to_meta->ptr_to_last != nullptr)
-    { 
+    {
         //and our metadat's ptr_to_last's ptr_to_next isn't pointing at our metadata
         if (ptr_to_meta->ptr_to_last->ptr_to_next != ptr_to_meta)
         {
@@ -244,20 +243,20 @@ void *m61_calloc(size_t nmemb, size_t sz, const char *file, long line)
 ///    behaves like `m61_free(ptr, file, line)`. The allocation request
 ///    was at location `file`:`line`.
 
-void* m61_realloc(void* ptr, size_t sz, const char* file, long line)
+void *m61_realloc(void *ptr, size_t sz, const char *file, long line)
 {
-    if(ptr == nullptr)
+    if (ptr == nullptr)
     {
-        void* ptr_to_return = m61_malloc(sz, file, line);
+        void *ptr_to_return = m61_malloc(sz, file, line);
         return ptr_to_return;
     }
-    if(sz == 0)
+    if (sz == 0)
     {
         m61_free(ptr, file, line);
         return ptr;
     }
     //request new memory of size sz
-    void* ptr_to_new_mem = m61_malloc(sz,file,line);
+    void *ptr_to_new_mem = m61_malloc(sz, file, line);
     //get to our metadata so we can recover original size
     header *ptr_to_meta = (header *)((char *)ptr - sizeof(header));
     size_t original_size = ptr_to_meta->size;
@@ -265,15 +264,9 @@ void* m61_realloc(void* ptr, size_t sz, const char* file, long line)
     ptr_to_new_mem = std::memcpy(ptr_to_new_mem, ptr, original_size);
 
     //free orig memory
-    m61_free(ptr,file,line);
+    m61_free(ptr, file, line);
     return ptr_to_new_mem;
 }
-
-/// m61_get_statistics(stats)
-
-
-
-///    Store the current memory statistics in `*stats`.
 
 void m61_get_statistics(m61_statistics *stats)
 {
@@ -331,7 +324,7 @@ void m61_print_heavy_hitter_report()
     //track usage
     //only have to track orig request sz NOT METADATA
     //20% or more use total_size to help calc
-    
+
     std::vector<heavy_hitters_item> local_heavy_hitters = {};
     // FOR REF
     // struct heavy_hitters_item
@@ -345,46 +338,45 @@ void m61_print_heavy_hitter_report()
     //         return x.size > b.size;
     //     }
     // };
-    
+
     //sorts by line number
     std::sort(heavy_hitters_report_vector.begin(), heavy_hitters_report_vector.end(), cus_cmp);
 
     //add first elem and then loop through each hitter item
     local_heavy_hitters.push_back(heavy_hitters_report_vector.front());
-    
-    for(int i = 1; i < (int)heavy_hitters_report_vector.size(); ++i)
-    {
-        
-            //if file and line are the same
-            if (heavy_hitters_report_vector.at(i).file == local_heavy_hitters.back().file &&
-                heavy_hitters_report_vector.at(i).line == local_heavy_hitters.back().line)
-            {
-                //add the sizes
-                local_heavy_hitters.back().size += heavy_hitters_report_vector.at(i).size;
-            }
-            else
-            {
-                //we have a new addition to push to back
 
-                local_heavy_hitters.push_back(heavy_hitters_report_vector.at(i));
-            }
-        
+    for (int i = 1; i < (int)heavy_hitters_report_vector.size(); ++i)
+    {
+
+        //if file and line are the same
+        if (heavy_hitters_report_vector.at(i).file == local_heavy_hitters.back().file &&
+            heavy_hitters_report_vector.at(i).line == local_heavy_hitters.back().line)
+        {
+            //add the sizes
+            local_heavy_hitters.back().size += heavy_hitters_report_vector.at(i).size;
+        }
+        else
+        {
+            //we have a new addition to push to back
+
+            local_heavy_hitters.push_back(heavy_hitters_report_vector.at(i));
+        }
     }
     //sort our new local_heavy_hitters container with a functor!
     //sorts by size
     std::sort(local_heavy_hitters.begin(), local_heavy_hitters.end(), heavy_hitters_item());
     printf("total_size called: %llu bytes in %llu allocations\n", global_stats.total_size, global_stats.ntotal);
     int sum_of_calc_percent = 0;
-    for (int i = 0; i<5; ++i)
+    for (int i = 0; i < 5; ++i)
     {
-        double calc_heavy_hitter_percent = (((double)local_heavy_hitters.at(i).size / (double) global_stats.total_size) * 100.0);
+        double calc_heavy_hitter_percent = (((double)local_heavy_hitters.at(i).size / (double)global_stats.total_size) * 100.0);
         sum_of_calc_percent += (int)calc_heavy_hitter_percent;
-        
-            printf("HEAVY HITTER: %s:%li: %lu bytes(~%4.2f%%)\n",
-                       local_heavy_hitters.at(i).file,
-                       local_heavy_hitters.at(i).line,
-                       local_heavy_hitters.at(i).size,
-                       calc_heavy_hitter_percent);
-        }    
+
+        printf("HEAVY HITTER: %s:%li: %lu bytes(~%4.2f%%)\n",
+               local_heavy_hitters.at(i).file,
+               local_heavy_hitters.at(i).line,
+               local_heavy_hitters.at(i).size,
+               calc_heavy_hitter_percent);
+    }
     return;
 }
