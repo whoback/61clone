@@ -152,9 +152,10 @@ void kfree(void* kptr) {
 
 void process_setup(pid_t pid, const char* program_name) {
     init_process(&ptable[pid], 0);
-
+    
     // initialize process page table
-    ptable[pid].pagetable = kernel_pagetable;
+    ptable[pid].pagetable = (x86_64_pagetable*) kalloc(PAGESIZE);
+    //kernel_pagetable;
 
     // load the program
     program_loader loader(program_name);
@@ -308,7 +309,6 @@ uintptr_t syscall(regstate* regs) {
         schedule();             // does not return
 
     case SYSCALL_PAGE_ALLOC:
-
         return syscall_page_alloc(current->regs.reg_rdi);
 
     default:
@@ -331,7 +331,7 @@ int syscall_page_alloc(uintptr_t addr) {
     {
         return -1;
     }
-    if(addr < PROC_START_ADDR || addr > MEMSIZE_VIRTUAL)
+    if(addr < PROC_START_ADDR || addr >= MEMSIZE_VIRTUAL)
     {
         return -1;
     }
