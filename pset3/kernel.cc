@@ -68,7 +68,7 @@ void kernel(const char* command) {
     for (vmiter it(kernel_pagetable);
          it.va() < MEMSIZE_PHYSICAL;
          it += PAGESIZE) {
-        if (it.va() != 0) {
+        if (it.va() < 0 && it.va() < PROC_START_ADDR){
             it.map(it.va(), PTE_P | PTE_W | PTE_U);
         } else {
             // nullptr is inaccessible even to the kernel
@@ -305,6 +305,7 @@ uintptr_t syscall(regstate* regs) {
         schedule();             // does not return
 
     case SYSCALL_PAGE_ALLOC:
+
         return syscall_page_alloc(current->regs.reg_rdi);
 
     default:
@@ -319,9 +320,18 @@ uintptr_t syscall(regstate* regs) {
 // syscall_page_alloc(addr)
 //    Handles the SYSCALL_PAGE_ALLOC system call. This function
 //    should implement the specification for `sys_page_alloc`
-//    in `u-lib.hh` (but in the handout code, it does not).
+//    in `u-lib.hh` (but in the handout code, it does not). Addr` should be //page-aligned (i.e., a multiple of PAGESIZE == 4096),
+//    >= PROC_START_ADDR, and < MEMSIZE_VIRTUAL.
 
 int syscall_page_alloc(uintptr_t addr) {
+    if(addr % 4096 != 0)
+    {
+        return -1;
+    }
+    if(addr < PROC_START_ADDR || addr > MEMSIZE_VIRTUAL)
+    {
+        return -1;
+    }
     assert(!pages[addr / PAGESIZE].used());
     pages[addr / PAGESIZE].refcount = 1;
     memset((void*) addr, 0, PAGESIZE);
