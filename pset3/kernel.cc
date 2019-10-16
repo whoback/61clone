@@ -140,8 +140,19 @@ void* kalloc(size_t sz) {
 //    If `kptr == nullptr` does nothing.
 
 void kfree(void* kptr) {
-    (void) kptr;
-    assert(false /* your code here */);
+    if(kptr == nullptr)
+    {
+        return;
+    }
+    if(!pages[(uintptr_t)kptr / PAGESIZE].used())
+    {
+        return;
+    }
+    if(pages[(uintptr_t)kptr / PAGESIZE].used())
+    {
+        pages[(uintptr_t)kptr / PAGESIZE].refcount = P_FREE;
+    }
+
 }
 
 
@@ -152,10 +163,27 @@ void kfree(void* kptr) {
 
 void process_setup(pid_t pid, const char* program_name) {
     init_process(&ptable[pid], 0);
-    
-    // initialize process page table
-    ptable[pid].pagetable = (x86_64_pagetable*) kalloc(PAGESIZE);
-    //kernel_pagetable;
+    //from patch 12
+    uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROC_SIZE;
+    uintptr_t last_addr = PROC_START_ADDR + pid * PROC_SIZE;
+    unsigned pageno = 1 + (pid - 1) * 4;
+    x86_64_pagetable* newpt = (x86_64_pagetable*)kalloc(PAGESIZE);
+    for(unsigned i = 0; i != 4; ++i)
+    {
+        pages[pageno + i].refcount = 1;
+        memset(&newpt[i], 0, PAGESIZE);
+        newpt[i].entry[0] = (uintptr_t) &newpt[i+1] | PTE_P | PTE_W | PTE_U;
+    }
+
+    for (uintptr_t a = 0; a != PROC_START_ADDR; a += PAGESIZE) {
+        vmiter(newpt, a).map(a, a ? PTE_P | PTE_W : 0);
+    }
+    vmiter(newpt, CONSOLE_ADDR).map(CONSOLE_ADDR, PTE_P | PTE_W | PTE_U);
+    for (uintptr_t a = first_addr; a != last_addr; a += PAGESIZE) {
+        vmiter(newpt, a).map(a, PTE_P | PTE_W | PTE_U);
+    }
+    check_pagetable(newpt);
+    ptable[pid].pagetable = newpt;
 
     // load the program
     program_loader loader(program_name);
@@ -335,9 +363,11 @@ int syscall_page_alloc(uintptr_t addr) {
     {
         return -1;
     }
-    assert(!pages[addr / PAGESIZE].used());
-    pages[addr / PAGESIZE].refcount = 1;
-    memset((void*) addr, 0, PAGESIZE);
+    
+    kfree((void*)addr);
+    
+    addr = (uintptr_t) kalloc(PAGESIZE);
+    memset((void*)addr, 0, PAGESIZE);
     return 0;
 }
 
