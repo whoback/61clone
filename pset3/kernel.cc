@@ -163,30 +163,33 @@ void kfree(void* kptr) {
 
 void process_setup(pid_t pid, const char* program_name) {
     init_process(&ptable[pid], 0);
-    //from patch 12
-    uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROC_SIZE;
+     uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROC_SIZE;
     uintptr_t last_addr = PROC_START_ADDR + pid * PROC_SIZE;
+    // - 4-level skeleton
     unsigned pageno = 1 + (pid - 1) * 4;
-    x86_64_pagetable* newpt = (x86_64_pagetable*)kalloc(PAGESIZE);
-    for(unsigned i = 0; i != 4; ++i)
-    {
+
+    x86_64_pagetable* pt = (x86_64_pagetable*) (pageno * PAGESIZE);
+    for (unsigned i = 0; i != 4; ++i) {
+        assert(!pages[pageno + i].used());
         pages[pageno + i].refcount = 1;
-        memset(&newpt[i], 0, PAGESIZE);
-        newpt[i].entry[0] = (uintptr_t) &newpt[i+1] | PTE_P | PTE_W | PTE_U;
+        memset(&pt[i], 0, PAGESIZE);
+        pt[i].entry[0] = (uintptr_t) &pt[i + 1] | PTE_P | PTE_W | PTE_U;
     }
 
+    // - actual entries
     for (uintptr_t a = 0; a != PROC_START_ADDR; a += PAGESIZE) {
-        vmiter(newpt, a).map(a, a ? PTE_P | PTE_W : 0);
+        vmiter(pt, a).map(a, a ? PTE_P | PTE_W : 0);
     }
-    vmiter(newpt, CONSOLE_ADDR).map(CONSOLE_ADDR, PTE_P | PTE_W | PTE_U);
+    vmiter(pt, CONSOLE_ADDR).map(CONSOLE_ADDR, PTE_P | PTE_W | PTE_U);
     for (uintptr_t a = first_addr; a != last_addr; a += PAGESIZE) {
-        vmiter(newpt, a).map(a, PTE_P | PTE_W | PTE_U);
+        vmiter(pt, a).map(a, PTE_P | PTE_W | PTE_U);
     }
-    check_pagetable(newpt);
-    ptable[pid].pagetable = newpt;
+
+    ptable[pid].pagetable = pt;
 
     // load the program
     program_loader loader(program_name);
+
 
     // allocate and map all memory
     for (loader.reset(); loader.present(); ++loader) {
@@ -195,6 +198,8 @@ void process_setup(pid_t pid, const char* program_name) {
              a += PAGESIZE) {
             assert(!pages[a / PAGESIZE].used());
             pages[a / PAGESIZE].refcount = 1;
+            vmiter(ptable[pid].pagetable, a).map(a, PTE_P | PTE_W | PTE_U);
+
         }
     }
 
@@ -364,10 +369,12 @@ int syscall_page_alloc(uintptr_t addr) {
         return -1;
     }
     
-    kfree((void*)addr);
-    
-    addr = (uintptr_t) kalloc(PAGESIZE);
-    memset((void*)addr, 0, PAGESIZE);
+    if(pages[addr/PAGESIZE].refcount != 0)
+    {
+        kfree((void*)addr);
+    }
+    pages[addr / PAGESIZE].refcount = 1;
+    memset((void*) addr, 0, PAGESIZE);
     return 0;
 }
 
