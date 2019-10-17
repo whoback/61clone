@@ -68,12 +68,9 @@ void kernel(const char* command) {
     for (vmiter it(kernel_pagetable);
          it.va() < MEMSIZE_PHYSICAL;
          it += PAGESIZE) {
-        if (it.va() >= PROC_START_ADDR || it.va() == CONSOLE_ADDR){
+        if (it.va() != 0) {
             it.map(it.va(), PTE_P | PTE_W | PTE_U);
-        } else if (it.va() != 0){
-            it.map(it.va(), PTE_P | PTE_W);
-        }
-        else {
+        } else {
             // nullptr is inaccessible even to the kernel
             it.map(it.va(), 0);
         }
@@ -140,19 +137,8 @@ void* kalloc(size_t sz) {
 //    If `kptr == nullptr` does nothing.
 
 void kfree(void* kptr) {
-    if(kptr == nullptr)
-    {
-        return;
-    }
-    if(!pages[(uintptr_t)kptr / PAGESIZE].used())
-    {
-        return;
-    }
-    if(pages[(uintptr_t)kptr / PAGESIZE].used())
-    {
-        pages[(uintptr_t)kptr / PAGESIZE].refcount = P_FREE;
-    }
-
+    (void) kptr;
+    assert(false /* your code here */);
 }
 
 
@@ -163,33 +149,12 @@ void kfree(void* kptr) {
 
 void process_setup(pid_t pid, const char* program_name) {
     init_process(&ptable[pid], 0);
-     uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROC_SIZE;
-    uintptr_t last_addr = PROC_START_ADDR + pid * PROC_SIZE;
-    // - 4-level skeleton
-    unsigned pageno = 1 + (pid - 1) * 4;
 
-    x86_64_pagetable* pt = (x86_64_pagetable*) (pageno * PAGESIZE);
-    for (unsigned i = 0; i != 4; ++i) {
-        assert(!pages[pageno + i].used());
-        pages[pageno + i].refcount = 1;
-        memset(&pt[i], 0, PAGESIZE);
-        pt[i].entry[0] = (uintptr_t) &pt[i + 1] | PTE_P | PTE_W | PTE_U;
-    }
-
-    // - actual entries
-    for (uintptr_t a = 0; a != PROC_START_ADDR; a += PAGESIZE) {
-        vmiter(pt, a).map(a, a ? PTE_P | PTE_W : 0);
-    }
-    vmiter(pt, CONSOLE_ADDR).map(CONSOLE_ADDR, PTE_P | PTE_W | PTE_U);
-    for (uintptr_t a = first_addr; a != last_addr; a += PAGESIZE) {
-        vmiter(pt, a).map(a, PTE_P | PTE_W | PTE_U);
-    }
-
-    ptable[pid].pagetable = pt;
+    // initialize process page table
+    ptable[pid].pagetable = kernel_pagetable;
 
     // load the program
     program_loader loader(program_name);
-
 
     // allocate and map all memory
     for (loader.reset(); loader.present(); ++loader) {
@@ -198,8 +163,6 @@ void process_setup(pid_t pid, const char* program_name) {
              a += PAGESIZE) {
             assert(!pages[a / PAGESIZE].used());
             pages[a / PAGESIZE].refcount = 1;
-            vmiter(ptable[pid].pagetable, a).map(a, PTE_P | PTE_W | PTE_U);
-
         }
     }
 
@@ -356,23 +319,10 @@ uintptr_t syscall(regstate* regs) {
 // syscall_page_alloc(addr)
 //    Handles the SYSCALL_PAGE_ALLOC system call. This function
 //    should implement the specification for `sys_page_alloc`
-//    in `u-lib.hh` (but in the handout code, it does not). Addr` should be //page-aligned (i.e., a multiple of PAGESIZE == 4096),
-//    >= PROC_START_ADDR, and < MEMSIZE_VIRTUAL.
+//    in `u-lib.hh` (but in the handout code, it does not).
 
 int syscall_page_alloc(uintptr_t addr) {
-    if(addr % 4096 != 0)
-    {
-        return -1;
-    }
-    if(addr < PROC_START_ADDR || addr >= MEMSIZE_VIRTUAL)
-    {
-        return -1;
-    }
-    
-    if(pages[addr/PAGESIZE].refcount != 0)
-    {
-        kfree((void*)addr);
-    }
+    assert(!pages[addr / PAGESIZE].used());
     pages[addr / PAGESIZE].refcount = 1;
     memset((void*) addr, 0, PAGESIZE);
     return 0;
