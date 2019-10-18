@@ -65,11 +65,11 @@ void kernel(const char* command) {
     console_clear();
 
     // (re-)initialize kernel page table
-    for (vmiter it(kernel_pagetable);
-         it.va() < MEMSIZE_PHYSICAL;
-         it += PAGESIZE) {
-        if (it.va() != 0) {
+    for (vmiter it(kernel_pagetable); it.va() < MEMSIZE_PHYSICAL; it += PAGESIZE) {
+        if (it.va() >= PROC_START_ADDR || it.va() == CONSOLE_ADDR) {
             it.map(it.va(), PTE_P | PTE_W | PTE_U);
+        } else if (it.va() != 0) {
+             it.map(it.va(), PTE_P | PTE_W);
         } else {
             // nullptr is inaccessible even to the kernel
             it.map(it.va(), 0);
@@ -137,8 +137,22 @@ void* kalloc(size_t sz) {
 //    If `kptr == nullptr` does nothing.
 
 void kfree(void* kptr) {
-    (void) kptr;
-    assert(false /* your code here */);
+    // assert(pages[(uintptr_t)kptr / PAGESIZE].refcount == 1);
+    if(kptr == nullptr)
+    {
+        return;
+    }
+    if(allocatable_physical_address((uintptr_t) kptr)
+        && pages[(uintptr_t)kptr / PAGESIZE].refcount == 1)
+    {
+        pages[(uintptr_t)kptr / PAGESIZE].refcount = 0;
+    } 
+    else
+    {
+        return;
+    }
+    
+    
 }
 
 
@@ -150,9 +164,22 @@ void kfree(void* kptr) {
 void process_setup(pid_t pid, const char* program_name) {
     init_process(&ptable[pid], 0);
 
-    // initialize process page table
-    ptable[pid].pagetable = kernel_pagetable;
+    // uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROCSIZE;
+    // uintptr_t last_addr = PROC_START_ADDR + pid * PROCSIZE;
+    
+    x86_64_pagetable* pt = (x86_64_pagetable*) kalloc(PAGESIZE);
+    memset(pt, 0, PAGESIZE);
+    
+    for(vmiter it(pt); it.va() < MEMSIZE_VIRTUAL; it += PAGESIZE)
+    {
+        if(it.va() < PROC_START_ADDR)
+        {
+            it.map(it.va(), PTE_P | PTE_W);
+        }
+        
+    }
 
+ptable[pid].pagetable = pt;
     // load the program
     program_loader loader(program_name);
 
@@ -163,6 +190,7 @@ void process_setup(pid_t pid, const char* program_name) {
              a += PAGESIZE) {
             assert(!pages[a / PAGESIZE].used());
             pages[a / PAGESIZE].refcount = 1;
+
         }
     }
 
@@ -180,6 +208,8 @@ void process_setup(pid_t pid, const char* program_name) {
     assert(!pages[stack_addr / PAGESIZE].used());
     pages[stack_addr / PAGESIZE].refcount = 1;
     ptable[pid].regs.reg_rsp = stack_addr + PAGESIZE;
+     vmiter t(pt);
+     t.map(stack_addr, PTE_P | PTE_W | PTE_U);
 
     // mark process as runnable
     ptable[pid].state = P_RUNNABLE;
@@ -305,8 +335,30 @@ uintptr_t syscall(regstate* regs) {
         schedule();             // does not return
 
     case SYSCALL_PAGE_ALLOC:
-        return syscall_page_alloc(current->regs.reg_rdi);
+    {
+        uintptr_t addr = current->regs.reg_rdi;
+        if (addr % PAGESIZE != 0 || addr < PROC_START_ADDR || addr >= MEMSIZE_VIRTUAL) 
+        {
+            return -1;
+        }
 
+        // void* pg = kalloc(PAGESIZE);
+        // if (!pg) 
+        // { 
+        //     // no free physical pages
+        // console_printf(CPOS(24, 0), 0x0C00, "Out of physical memory!\n");
+        // return -1;
+        // }
+
+        if (vmiter(current, addr).user()) 
+        {
+            kfree((void*) vmiter(current, addr).pa());
+        }
+
+        // vmiter(current->pagetable, addr).map((uintptr_t) pg, PTE_P | PTE_W | PTE_U);
+
+        return syscall_page_alloc(current->regs.reg_rdi);
+    }
     default:
         panic("Unexpected system call %ld!\n", regs->reg_rax);
 
