@@ -143,7 +143,7 @@ void kfree(void* kptr) {
         return;
     }
     if(allocatable_physical_address((uintptr_t) kptr)
-        && pages[(uintptr_t)kptr / PAGESIZE].refcount == 1)
+        && pages[(uintptr_t)kptr / PAGESIZE].refcount != 0)
     {
         pages[(uintptr_t)kptr / PAGESIZE].refcount = 0;
     } 
@@ -164,22 +164,35 @@ void kfree(void* kptr) {
 void process_setup(pid_t pid, const char* program_name) {
     init_process(&ptable[pid], 0);
 
-    // uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROCSIZE;
-    // uintptr_t last_addr = PROC_START_ADDR + pid * PROCSIZE;
-    
-    x86_64_pagetable* pt = (x86_64_pagetable*) kalloc(PAGESIZE);
-    memset(pt, 0, PAGESIZE);
-    
-    for(vmiter it(pt); it.va() < MEMSIZE_VIRTUAL; it += PAGESIZE)
-    {
-        if(it.va() < PROC_START_ADDR)
-        {
-            it.map(it.va(), PTE_P | PTE_W);
-        }
+    uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROC_SIZE;
+    uintptr_t last_addr = PROC_START_ADDR + pid * PROC_SIZE;
+    unsigned pageno = 1 + (pid - 1) * 4;
+    x86_64_pagetable* pt = (x86_64_pagetable*) (pageno * PAGESIZE);
+    // memset(pt, 0, PAGESIZE);
+    for (unsigned i = 0; i != 4; ++i) {
+        assert(!pages[pageno + i].used());
+        pages[pageno + i].refcount = 1;
+        memset(&pt[i], 0, PAGESIZE);
+        pt[i].entry[0] = (uintptr_t) &pt[i + 1] | PTE_P | PTE_W | PTE_U;
+    }
+    // for(vmiter it(pt); it.va() < MEMSIZE_VIRTUAL; it += PAGESIZE)
+    // {
+    //     if (it.va() < PROC_START_ADDR) {
+    //       vmiter(pt, it.va()).map(it.pa(), PTE_P | PTE_W);
+    //     } 
         
+       
+    // }
+    // - actual entries
+    for (uintptr_t a = 0; a != PROC_START_ADDR; a += PAGESIZE) {
+        vmiter(pt, a).map(a, a ? PTE_P | PTE_W : 0);
+    }
+    vmiter(pt, CONSOLE_ADDR).map(CONSOLE_ADDR, PTE_P | PTE_W | PTE_U);
+    for (uintptr_t a = first_addr; a != last_addr; a += PAGESIZE) {
+        vmiter(pt, a).map(a, PTE_P | PTE_W | PTE_U);
     }
 
-ptable[pid].pagetable = pt;
+    ptable[pid].pagetable = pt;
     // load the program
     program_loader loader(program_name);
 
@@ -336,11 +349,8 @@ uintptr_t syscall(regstate* regs) {
 
     case SYSCALL_PAGE_ALLOC:
     {
-        uintptr_t addr = current->regs.reg_rdi;
-        if (addr % PAGESIZE != 0 || addr < PROC_START_ADDR || addr >= MEMSIZE_VIRTUAL) 
-        {
-            return -1;
-        }
+        //uintptr_t addr = current->regs.reg_rdi;
+      
 
         // void* pg = kalloc(PAGESIZE);
         // if (!pg) 
@@ -350,10 +360,10 @@ uintptr_t syscall(regstate* regs) {
         // return -1;
         // }
 
-        if (vmiter(current, addr).user()) 
-        {
-            kfree((void*) vmiter(current, addr).pa());
-        }
+        // if (vmiter(current, addr).user()) 
+        // {
+        //     kfree((void*) vmiter(current, addr).pa());
+        // }
 
         // vmiter(current->pagetable, addr).map((uintptr_t) pg, PTE_P | PTE_W | PTE_U);
 
@@ -374,9 +384,19 @@ uintptr_t syscall(regstate* regs) {
 //    in `u-lib.hh` (but in the handout code, it does not).
 
 int syscall_page_alloc(uintptr_t addr) {
-    assert(!pages[addr / PAGESIZE].used());
+    // assert(!pages[addr / PAGESIZE].used());
+
+      if (addr % PAGESIZE != 0 || addr < PROC_START_ADDR || addr >= MEMSIZE_VIRTUAL ) 
+        {
+            return -1;
+        }
+        if(pages[addr / PAGESIZE].refcount != 0)
+        {
+            kfree((void*)addr);
+        }
     pages[addr / PAGESIZE].refcount = 1;
     memset((void*) addr, 0, PAGESIZE);
+    
     return 0;
 }
 
