@@ -167,31 +167,25 @@ void process_setup(pid_t pid, const char* program_name) {
     uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROC_SIZE;
     uintptr_t last_addr = PROC_START_ADDR + pid * PROC_SIZE;
     unsigned pageno = 1 + (pid - 1) * 4;
-    x86_64_pagetable* pt = (x86_64_pagetable*) (pageno * PAGESIZE);
-    // memset(pt, 0, PAGESIZE);
-    for (unsigned i = 0; i != 4; ++i) {
-        assert(!pages[pageno + i].used());
-        pages[pageno + i].refcount = 1;
-        memset(&pt[i], 0, PAGESIZE);
-        pt[i].entry[0] = (uintptr_t) &pt[i + 1] | PTE_P | PTE_W | PTE_U;
-    }
-    // for(vmiter it(pt); it.va() < MEMSIZE_VIRTUAL; it += PAGESIZE)
-    // {
-    //     if (it.va() < PROC_START_ADDR) {
-    //       vmiter(pt, it.va()).map(it.pa(), PTE_P | PTE_W);
-    //     } 
-        
-       
+    x86_64_pagetable* pt = (x86_64_pagetable*) kalloc(PAGESIZE);
+    //(x86_64_pagetable*) (pageno * PAGESIZE);
+     memset(pt, 0, PAGESIZE);
+    // for (unsigned i = 0; i != 4; ++i) {
+    //     assert(!pages[pageno + i].used());
+    //     pages[pageno + i].refcount = 1;
+    //     memset(&pt[i], 0, PAGESIZE);
+    //     pt[i].entry[0] = (uintptr_t) &pt[i + 1] | PTE_P | PTE_W | PTE_U;
     // }
+
     // - actual entries
     for (uintptr_t a = 0; a != PROC_START_ADDR; a += PAGESIZE) {
-        vmiter(pt, a).map(a, a ? PTE_P | PTE_W : 0);
+        vmiter(pt, a).map(a, PTE_P | PTE_W);
     }
     vmiter(pt, CONSOLE_ADDR).map(CONSOLE_ADDR, PTE_P | PTE_W | PTE_U);
     for (uintptr_t a = first_addr; a != last_addr; a += PAGESIZE) {
         vmiter(pt, a).map(a, PTE_P | PTE_W | PTE_U);
     }
-
+    check_pagetable(pt);
     ptable[pid].pagetable = pt;
     // load the program
     program_loader loader(program_name);
@@ -221,8 +215,8 @@ void process_setup(pid_t pid, const char* program_name) {
     assert(!pages[stack_addr / PAGESIZE].used());
     pages[stack_addr / PAGESIZE].refcount = 1;
     ptable[pid].regs.reg_rsp = stack_addr + PAGESIZE;
-     vmiter t(pt);
-     t.map(stack_addr, PTE_P | PTE_W | PTE_U);
+    //  vmiter t(pt);
+    //  t.map(stack_addr, PTE_P | PTE_W | PTE_U);
 
     // mark process as runnable
     ptable[pid].state = P_RUNNABLE;
@@ -384,7 +378,7 @@ uintptr_t syscall(regstate* regs) {
 //    in `u-lib.hh` (but in the handout code, it does not).
 
 int syscall_page_alloc(uintptr_t addr) {
-    // assert(!pages[addr / PAGESIZE].used());
+     assert(!pages[addr / PAGESIZE].used());
 
       if (addr % PAGESIZE != 0 || addr < PROC_START_ADDR || addr >= MEMSIZE_VIRTUAL ) 
         {
@@ -394,9 +388,10 @@ int syscall_page_alloc(uintptr_t addr) {
         {
             kfree((void*)addr);
         }
-    pages[addr / PAGESIZE].refcount = 1;
-    memset((void*) addr, 0, PAGESIZE);
-    
+      pages[addr / PAGESIZE].refcount = 1;
+      memset((void*) addr, 0, PAGESIZE);
+
+    //vmiter(current->pagetable, addr).map(addr, PTE_P | PTE_W | PTE_U);
     return 0;
 }
 
