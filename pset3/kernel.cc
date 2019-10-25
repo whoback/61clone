@@ -169,7 +169,7 @@ void process_setup(pid_t pid, const char* program_name) {
     unsigned pageno = 1 + (pid - 1) * 4;
     x86_64_pagetable* pt = (x86_64_pagetable*) kalloc(PAGESIZE);
      memset(pt, 0, PAGESIZE);
-
+    
     // - actual entries
     for (uintptr_t a = 0; a != PROC_START_ADDR; a += PAGESIZE) {
         vmiter(pt, a).map(a, PTE_P | PTE_W);
@@ -180,6 +180,7 @@ void process_setup(pid_t pid, const char* program_name) {
     }
     check_pagetable(pt);
     ptable[pid].pagetable = pt;
+    set_pagetable(pt);
     // load the program
     program_loader loader(program_name);
 
@@ -371,8 +372,6 @@ uintptr_t syscall(regstate* regs) {
 //    in `u-lib.hh` (but in the handout code, it does not).
 
 int syscall_page_alloc(uintptr_t addr) {
-     assert(!pages[addr / PAGESIZE].used());
-
       if (addr % PAGESIZE != 0 || addr < PROC_START_ADDR || addr >= MEMSIZE_VIRTUAL ) 
         {
             return -1;
@@ -381,13 +380,16 @@ int syscall_page_alloc(uintptr_t addr) {
         {
             kfree((void*)addr);
         }
-      
+      assert(!pages[addr / PAGESIZE].used());
     //   pages[addr / PAGESIZE].refcount = 1;
     void* ptr = (void *)addr;
     ptr = kalloc(PAGESIZE);
       memset((void*) ptr, 0, PAGESIZE);
-      vmiter(current->pagetable, addr).map(ptr, PTE_P|PTE_W|PTE_U);
-
+      int t = vmiter(current->pagetable, addr).try_map(ptr, PTE_P|PTE_W|PTE_U);
+        if(t != 0)
+        {
+            return -1;
+        }
     //vmiter(current->pagetable, addr).map(addr, PTE_P | PTE_W | PTE_U);
     return 0;
 }
