@@ -386,7 +386,7 @@ int syscall_page_alloc(uintptr_t addr) {
     void* ptr = (void *)addr;
     ptr = kalloc(PAGESIZE);
       memset((void*) ptr, 0, PAGESIZE);
-      vmiter(current->pagetable, addr).map(ptr, PTE_PWU);
+      vmiter(current->pagetable, addr).map(ptr, PTE_P|PTE_W|PTE_U);
 
     //vmiter(current->pagetable, addr).map(addr, PTE_P | PTE_W | PTE_U);
     return 0;
