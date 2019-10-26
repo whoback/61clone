@@ -65,7 +65,7 @@ void kernel(const char* command) {
     console_clear();
 
     // (re-)initialize kernel page table
-    for (vmiter it(kernel_pagetable); it.va() < MEMSIZE_PHYSICAL; it += PAGESIZE) {
+    for (vmiter it(kernel_pagetable); it.va() < MEMSIZE_VIRTUAL; it += PAGESIZE) {
         if (it.va() >= PROC_START_ADDR || it.va() == CONSOLE_ADDR) {
             it.map(it.va(), PTE_P | PTE_W | PTE_U);
         } else if (it.va() != 0) {
@@ -169,31 +169,35 @@ void process_setup(pid_t pid, const char* program_name) {
     unsigned pageno = 1 + (pid - 1) * 4;
     x86_64_pagetable* pt = (x86_64_pagetable*) kalloc(PAGESIZE);
      memset(pt, 0, PAGESIZE);
-    
-    // - actual entries
-    for (uintptr_t a = 0; a != PROC_START_ADDR; a += PAGESIZE) {
-        vmiter(pt, a).map(a, PTE_P | PTE_W);
+  
+ 
+    for (vmiter it(pt, 0); it.va() != PROC_START_ADDR; it += PAGESIZE) {
+        it.map(it.va(), PTE_P | PTE_W);
     }
     vmiter(pt, CONSOLE_ADDR).map(CONSOLE_ADDR, PTE_P | PTE_W | PTE_U);
     for (uintptr_t a = first_addr; a != last_addr; a += PAGESIZE) {
         vmiter(pt, a).map(a, PTE_P | PTE_W | PTE_U);
     }
-    check_pagetable(pt);
-    ptable[pid].pagetable = pt;
-    set_pagetable(pt);
+    
+   
+
+   ptable[pid].pagetable = pt;
+    
+//  console_printf("Made it to lader");
     // load the program
     program_loader loader(program_name);
 
     // allocate and map all memory
-    for (loader.reset(); loader.present(); ++loader) {
+     for (loader.reset(); loader.present(); ++loader) {
         for (uintptr_t a = round_down(loader.va(), PAGESIZE);
              a < loader.va() + loader.size();
              a += PAGESIZE) {
-            assert(!pages[a / PAGESIZE].used());            
-            pages[a / PAGESIZE].refcount = 1;
-
+            assert(!pages[a / PAGESIZE].used());
+            
         }
+        vmiter(pt, loader.va()).map(loader.va(), PTE_P | PTE_W | PTE_U);
     }
+    
 
     // copy instructions and data into place
     for (loader.reset(); loader.present(); ++loader) {
@@ -209,11 +213,17 @@ void process_setup(pid_t pid, const char* program_name) {
     assert(!pages[stack_addr / PAGESIZE].used());
     pages[stack_addr / PAGESIZE].refcount = 1;
     ptable[pid].regs.reg_rsp = stack_addr + PAGESIZE;
-    //  vmiter t(pt);
-    //  t.map(stack_addr, PTE_P | PTE_W | PTE_U);
-
+    // //  vmiter t(pt);
+    // //  t.map(stack_addr, PTE_P | PTE_W | PTE_U);
+    
+    // int t = vmiter(pt).try_map(stack_addr, PTE_P | PTE_W | PTE_U);
+    //     if(t != 0)
+    //     {
+    //         console_printf("stack addr fail");
+    //     }
     // mark process as runnable
     ptable[pid].state = P_RUNNABLE;
+    // console_printf("Stack");
 }
 
 
@@ -372,25 +382,34 @@ uintptr_t syscall(regstate* regs) {
 //    in `u-lib.hh` (but in the handout code, it does not).
 
 int syscall_page_alloc(uintptr_t addr) {
-      if (addr % PAGESIZE != 0 || addr < PROC_START_ADDR || addr >= MEMSIZE_VIRTUAL ) 
+    //console_printf("It got to syscall_page_alloc");
+      if ((addr % PAGESIZE != 0 || addr < PROC_START_ADDR || addr >= MEMSIZE_VIRTUAL) && addr != CONSOLE_ADDR) 
         {
             return -1;
         }
-        if(pages[addr / PAGESIZE].refcount != 0)
+
+        if (vmiter(current, addr).user()) 
         {
-            kfree((void*)addr);
+            kfree((void*) vmiter(current, addr).pa());
         }
-      assert(!pages[addr / PAGESIZE].used());
-    //   pages[addr / PAGESIZE].refcount = 1;
-    void* ptr = (void *)addr;
-    ptr = kalloc(PAGESIZE);
-      memset((void*) ptr, 0, PAGESIZE);
-      int t = vmiter(current->pagetable, addr).try_map(ptr, PTE_P|PTE_W|PTE_U);
-        if(t != 0)
-        {
-            return -1;
-        }
-    //vmiter(current->pagetable, addr).map(addr, PTE_P | PTE_W | PTE_U);
+       assert(!pages[addr / PAGESIZE].used());
+
+       void* p =  kalloc(PAGESIZE);
+       if(!p)
+       {
+           console_printf("No phys memory for sycall");
+           return -1;
+       }
+       memset((void*) p, 0, PAGESIZE);
+       //memcpy((void*)addr, p, PAGESIZE);
+    
+    console_printf("in sycall");
+    pid_t pid = current->pid;
+   int t =  vmiter(ptable[pid].pagetable, addr).try_map((uintptr_t)p, PTE_P | PTE_W | PTE_U);
+   if(t!=0)
+   {
+       return -1;
+   }
     return 0;
 }
 
