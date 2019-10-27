@@ -227,7 +227,7 @@ void process_setup(pid_t pid, const char *program_name)
     ptable[pid].regs.reg_rip = loader.entry();
 
       // allocate stack
-    uintptr_t stack_addr = last_addr - PAGESIZE;
+    uintptr_t stack_addr = MEMSIZE_VIRTUAL;
     assert(!pages[stack_addr / PAGESIZE].used());
     // pages[stack_addr / PAGESIZE].refcount = 1;
      void *p = kalloc(PAGESIZE);
