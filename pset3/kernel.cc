@@ -163,14 +163,14 @@ void kfree(void* kptr) {
 
 void process_setup(pid_t pid, const char* program_name) {
     init_process(&ptable[pid], 0);
-
+    set_pagetable(kernel_pagetable);
+    
     uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROC_SIZE;
     uintptr_t last_addr = PROC_START_ADDR + pid * PROC_SIZE;
     unsigned pageno = 1 + (pid - 1) * 4;
     x86_64_pagetable* pt = (x86_64_pagetable*) kalloc(PAGESIZE);
      memset(pt, 0, PAGESIZE);
-  
- 
+  ptable[pid].pagetable = pt;
     for (vmiter it(pt, 0); it.va() != PROC_START_ADDR; it += PAGESIZE) {
         it.map(it.va(), PTE_P | PTE_W);
     }
@@ -181,9 +181,8 @@ void process_setup(pid_t pid, const char* program_name) {
     
    
 
-   ptable[pid].pagetable = pt;
-    
-//  console_printf("Made it to lader");
+ 
+    set_pagetable(ptable[pid].pagetable);
     // load the program
     program_loader loader(program_name);
 
@@ -193,12 +192,20 @@ void process_setup(pid_t pid, const char* program_name) {
              a < loader.va() + loader.size();
              a += PAGESIZE) {
             assert(!pages[a / PAGESIZE].used());
-            
-        }
-        vmiter(pt, loader.va()).map(loader.va(), PTE_P | PTE_W | PTE_U);
+            void* dstpg = kalloc(PAGESIZE);
+            memset(dstpg, 0, PAGESIZE);
+            memcpy((void *) dstpg, loader.data(), loader.data_size());
+                 int t =  vmiter(pt, a).try_map((uintptr_t)dstpg, PTE_P | PTE_W | PTE_U);
+                if(t!=0)
+                 {
+                  console_printf("error trymap");
+                    }
+              }
+        console_printf("Made it to lader\n");
+
     }
     
-
+console_printf("Out of loader.\n");
     // copy instructions and data into place
     for (loader.reset(); loader.present(); ++loader) {
         memset((void*) loader.va(), 0, loader.size());
@@ -211,19 +218,22 @@ void process_setup(pid_t pid, const char* program_name) {
     // allocate stack
     uintptr_t stack_addr = PROC_START_ADDR + PROC_SIZE * pid - PAGESIZE;
     assert(!pages[stack_addr / PAGESIZE].used());
-    pages[stack_addr / PAGESIZE].refcount = 1;
+     pages[stack_addr / PAGESIZE].refcount = 1;
     ptable[pid].regs.reg_rsp = stack_addr + PAGESIZE;
     // //  vmiter t(pt);
     // //  t.map(stack_addr, PTE_P | PTE_W | PTE_U);
-    
-    // int t = vmiter(pt).try_map(stack_addr, PTE_P | PTE_W | PTE_U);
-    //     if(t != 0)
-    //     {
-    //         console_printf("stack addr fail");
-    //     }
+    void* dstpg = kalloc(PAGESIZE);
+    memset(dstpg, 0, PAGESIZE);
+    //memcpy(dstpg, (void*)stack_addr, PAGESIZE);
+
+    int t = vmiter(pt).try_map(stack_addr, PTE_P | PTE_W | PTE_U);
+        if(t != 0)
+        {
+            console_printf("stack addr fail");
+        }
     // mark process as runnable
     ptable[pid].state = P_RUNNABLE;
-    // console_printf("Stack");
+     console_printf("Stack");
 }
 
 
@@ -401,13 +411,15 @@ int syscall_page_alloc(uintptr_t addr) {
            return -1;
        }
        memset((void*) p, 0, PAGESIZE);
-       //memcpy((void*)addr, p, PAGESIZE);
+       memcpy((void*)addr, p, PAGESIZE);
     
-    console_printf("in sycall");
+    // console_printf("in sycall\n");
     pid_t pid = current->pid;
    int t =  vmiter(ptable[pid].pagetable, addr).try_map((uintptr_t)p, PTE_P | PTE_W | PTE_U);
    if(t!=0)
    {
+                  console_printf("error trymap");
+
        return -1;
    }
     return 0;
