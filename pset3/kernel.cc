@@ -183,12 +183,13 @@ void process_setup(pid_t pid, const char *program_name)
             if (itb.va() < PROC_START_ADDR)
                 {
                     itb.map(ita.pa(), ita.perm());
-            } else if (itb.va() != 0) {
-                itb.map(ita.pa(), PTE_P | PTE_W);
-            } else {
-                // nullptr is inaccessible even to the kernel
-                itb.map(ita.pa(), 0);
-            }
+                }
+            // } else if (itb.va() != 0) {
+            //     itb.map(ita.pa(), PTE_P | PTE_W);
+            // } else {
+            //     // nullptr is inaccessible even to the kernel
+            //     itb.map(ita.pa(), 0);
+            // }
     }
     // for (vmiter it(pt, 0); it.va() != PROC_START_ADDR; it += PAGESIZE) {
     //     it.map(it.va(), PTE_P | PTE_W);
@@ -403,11 +404,11 @@ int syscall_page_alloc(uintptr_t addr)
         return -1;
     }
 
-    if (vmiter(current, addr).user())
+    if (vmiter(current, addr).user() || pages[addr / PAGESIZE].used())
     {
         kfree((void *)vmiter(current, addr).pa());
     }
-    assert(!pages[addr / PAGESIZE].used());
+    
 
     void *p = kalloc(PAGESIZE);
     if (!p)
