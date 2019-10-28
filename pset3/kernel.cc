@@ -173,12 +173,12 @@ void kfree(void *kptr)
 
 void process_setup(pid_t pid, const char *program_name)
 {
+    log_printf("in process setup for %s, pid: %i\n", program_name, pid);
     init_process(&ptable[pid], 0);
-    set_pagetable(kernel_pagetable);
+   // set_pagetable(kernel_pagetable);
 
     uintptr_t first_addr = PROC_START_ADDR + (pid - 1) * PROC_SIZE;
     uintptr_t last_addr = PROC_START_ADDR + pid * PROC_SIZE;
-    unsigned pageno = 1 + (pid - 1) * 4;
     x86_64_pagetable *pt = (x86_64_pagetable *)kalloc(PAGESIZE);
     if(!pt)
     {
@@ -186,6 +186,7 @@ void process_setup(pid_t pid, const char *program_name)
         kfree((void*)pt);
     }
     memset(pt, 0, PAGESIZE);
+    
     ptable[pid].pagetable = pt;
     for (vmiter ita(kernel_pagetable, 0), itb(ptable[pid].pagetable, 0);
          ita.va() < MEMSIZE_VIRTUAL;
@@ -195,6 +196,7 @@ void process_setup(pid_t pid, const char *program_name)
         {
             itb.map(ita.pa(), ita.perm());
         }
+        
         else
         {
             // nullptr is inaccessible even to the kernel
@@ -222,7 +224,11 @@ void process_setup(pid_t pid, const char *program_name)
             }
             memset(p, 0, PAGESIZE);
             memcpy(p, loader.data(), loader.data_size());
-            vmiter(ptable[pid].pagetable, a).map((uintptr_t)p, PTE_P | PTE_W | PTE_U);
+            int t = vmiter(ptable[pid].pagetable, a).try_map((uintptr_t)p, PTE_P | PTE_W | PTE_U);
+            if(t!=0)
+            {
+                log_printf("Failed mapping in loader");
+            }
         }
     }
 
@@ -237,15 +243,11 @@ void process_setup(pid_t pid, const char *program_name)
 
     set_pagetable(kernel_pagetable);
     // mark entry point
-
-
-
-
     ptable[pid].regs.reg_rip = loader.entry();
 
     // allocate stack
-    uintptr_t stack_addr = PROC_START_ADDR + PROC_SIZE * pid - PAGESIZE;;
-    //assert(!pages[stack_addr / PAGESIZE].used());
+    uintptr_t stack_addr = PROC_START_ADDR + PROC_SIZE * pid - PAGESIZE;
+    assert(!pages[stack_addr / PAGESIZE].used());
      //pages[stack_addr / PAGESIZE].refcount = 1;
     void *p = kalloc(PAGESIZE);
     if (!p)
@@ -332,7 +334,8 @@ void exception(regstate *regs)
     }
 
     default:
-        panic("Unexpected exception %d!\n", regs->reg_intno);
+        panic("Unexpected exception proc %d: exception %d at rip %p\n",
+                current->pid, regs->reg_intno, regs->reg_rip);
     }
 
     // Return to the current process (or run something else).
@@ -468,8 +471,7 @@ pid_t sys_fork(void)
             // return process id
             ptable[i].regs = current->regs;
             ptable[i].regs.reg_rax = 0;
-            log_printf("@@@ returned pid %d @@@", pid_fork);
-            return pid_fork;
+            
         }
     }
     // return -1 if no slot in ptable for process
@@ -478,6 +480,8 @@ pid_t sys_fork(void)
         log_printf("!!! returned -1 from fork !!!! ");
         return -1;
     }
+    log_printf("@@@ returned pid %d @@@", pid_fork);
+            return pid_fork;
 }
 // syscall_page_alloc(addr)
 //    Handles the SYSCALL_PAGE_ALLOC system call. This function
@@ -489,6 +493,8 @@ int syscall_page_alloc(uintptr_t addr)
     //console_printf("It got to syscall_page_alloc");
     if ((addr % PAGESIZE != 0) || (addr < PROC_START_ADDR) || (addr >= MEMSIZE_VIRTUAL))
     {
+        log_printf("bad address at: %u\n", addr);
+
         return -1;
     }
 
@@ -500,7 +506,7 @@ int syscall_page_alloc(uintptr_t addr)
     void *p = kalloc(PAGESIZE);
     if (!p)
     {
-        // console_printf("No phys memory for sycall");
+        log_printf("No phys memory for sycall\n");
         kfree(p);
         return -1;
     }
@@ -512,7 +518,7 @@ int syscall_page_alloc(uintptr_t addr)
     int t = vmiter(ptable[pid].pagetable, addr).try_map((uintptr_t)p, PTE_P | PTE_W | PTE_U);
     if (t != 0)
     {
-        // console_printf("error trymap");
+        log_printf("error syscall alloctrymap");
 
         return -1;
     }
