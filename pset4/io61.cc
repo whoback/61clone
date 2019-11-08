@@ -154,15 +154,27 @@ ssize_t io61_write(io61_file* f, const char* buf, size_t sz) {
 
     /* ANSWER */
     size_t pos = 0;
+    size_t ch = 0;
+
     while (pos < sz) {
         if (f->end_tag == f->tag + f->bufsize) {
             io61_flush(f);
         }
+        if((off_t)(sz - pos) < f->bufsize - f->pos_tag + f->tag)
+        {
+            ch = sz - pos;
+        }
+        else
+        {
+            ch = f->bufsize - f->pos_tag + f->tag;
+        }
+        
 
-        memcpy(&f->cbuf[f->pos_tag - f->tag], buf, sz);
-        ++f->pos_tag;
-        ++f->end_tag;
-        ++pos;
+        memcpy(&f->cbuf[f->pos_tag - f->tag], buf, ch);
+        f->pos_tag += ch;
+        f->end_tag += ch;
+        pos += ch;
+        buf += ch;
     }
     return pos;
 }
