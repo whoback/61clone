@@ -29,6 +29,7 @@ int io61_flush(io61_file* f);
 void io61_profile_begin();
 void io61_profile_end();
 
+void io61_fill(io61_file *f);
 
 struct io61_arguments {
     size_t input_size;          // `-s` option: input size. Default SIZE_MAX
