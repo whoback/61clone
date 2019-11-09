@@ -50,14 +50,15 @@ int io61_close(io61_file *f)
 //    Read a single (unsigned) character from `f` and return it. Returns EOF
 //    (which is -1) on error or end-of-file.
 
-int io61_readc(io61_file* f) {
+int io61_readc(io61_file *f)
+{
     unsigned char buf[1];
     size_t pos = 0;
     size_t ch = 0;
-    if(f->pos_tag == f->end_tag)
+    if (f->pos_tag == f->end_tag)
     {
         io61_fill(f);
-        if(f->pos_tag == f->end_tag)
+        if (f->pos_tag == f->end_tag)
         {
             return -1;
         }
@@ -66,7 +67,7 @@ int io61_readc(io61_file* f) {
     buf[0] = f->cbuf[f->pos_tag - f->tag];
     f->pos_tag += ch;
     pos += ch;
-    
+
     return buf[0];
 }
 // io61_read(f, buf, sz)
@@ -81,6 +82,7 @@ ssize_t io61_read(io61_file *f, char *buf, size_t sz)
     assert(f->tag <= f->pos_tag && f->pos_tag <= f->end_tag);
     assert(f->end_tag - f->pos_tag <= f->bufsize);
     size_t nread = 0;
+    size_t ch = 0;
     while (nread != sz)
     {
         if (f->pos_tag == f->end_tag)
@@ -92,10 +94,22 @@ ssize_t io61_read(io61_file *f, char *buf, size_t sz)
                 break;
             }
         }
-
-        memcpy(buf, &f->cbuf[f->pos_tag - f->tag], sz);
-        ++f->pos_tag;
-        ++nread;
+        if ((sz - nread) < f->end_tag - f->pos_tag)
+        {
+            ch = sz - nread;
+            memcpy(buf, &f->cbuf[f->pos_tag - f->tag], ch);
+            f->pos_tag += ch;
+            nread += ch;
+            buf += ch;
+        }
+        else
+        {
+            ch = f->end_tag - f->pos_tag;
+            memcpy(buf, &f->cbuf[f->pos_tag - f->tag], ch);
+            f->pos_tag += ch;
+            nread += ch;
+            buf += ch;
+        }
     }
     return nread;
 
@@ -117,7 +131,6 @@ void io61_fill(io61_file *f)
         f->end_tag = f->tag + n;
     }
 
-
     assert(f->tag <= f->pos_tag && f->pos_tag <= f->end_tag);
     assert(f->end_tag - f->pos_tag <= f->bufsize);
 }
@@ -128,7 +141,8 @@ void io61_fill(io61_file *f)
 
 int io61_writec(io61_file *f, int ch)
 {
-    if (f->end_tag == f->tag + f->bufsize) {
+    if (f->end_tag == f->tag + f->bufsize)
+    {
         io61_flush(f);
     }
     size_t count = 1;
@@ -144,7 +158,8 @@ int io61_writec(io61_file *f, int ch)
 //    characters written on success; normally this is `sz`. Returns -1 if
 //    an error occurred before any characters were written.
 
-ssize_t io61_write(io61_file* f, const char* buf, size_t sz) {
+ssize_t io61_write(io61_file *f, const char *buf, size_t sz)
+{
     // Check invariants.
     assert(f->tag <= f->pos_tag && f->pos_tag <= f->end_tag);
     assert(f->end_tag - f->pos_tag <= f->bufsize);
@@ -156,11 +171,13 @@ ssize_t io61_write(io61_file* f, const char* buf, size_t sz) {
     size_t pos = 0;
     size_t ch = 0;
 
-    while (pos < sz) {
-        if (f->end_tag == f->tag + f->bufsize) {
+    while (pos < sz)
+    {
+        if (f->end_tag == f->tag + f->bufsize)
+        {
             io61_flush(f);
         }
-        if((off_t)(sz - pos) < f->bufsize - f->pos_tag + f->tag)
+        if ((off_t)(sz - pos) < f->bufsize - f->pos_tag + f->tag)
         {
             ch = sz - pos;
         }
@@ -168,7 +185,6 @@ ssize_t io61_write(io61_file* f, const char* buf, size_t sz) {
         {
             ch = f->bufsize - f->pos_tag + f->tag;
         }
-        
 
         memcpy(&f->cbuf[f->pos_tag - f->tag], buf, ch);
         f->pos_tag += ch;
@@ -184,17 +200,18 @@ ssize_t io61_write(io61_file* f, const char* buf, size_t sz) {
 //    If `f` was opened read-only, io61_flush(f) may either drop all
 //    data buffered for reading, or do nothing.
 
-int io61_flush(io61_file* f) {
+int io61_flush(io61_file *f)
+{
     assert(f->tag <= f->pos_tag && f->pos_tag <= f->end_tag);
     assert(f->end_tag - f->pos_tag <= f->bufsize);
 
     assert(f->pos_tag == f->end_tag);
-    if(f->mode == O_RDONLY)
+    if (f->mode == O_RDONLY)
     {
         return 0;
     }
     ssize_t n = write(f->fd, f->cbuf, f->pos_tag - f->tag);
-    assert((size_t) n == f->pos_tag - f->tag);
+    
     f->tag = f->pos_tag;
     return 0;
 }
