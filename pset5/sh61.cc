@@ -145,6 +145,11 @@ void run(command* c) {
     {
         c->make_child(0);
     }
+    if(c->is_background==true)
+    {
+        c->make_child(c->pid);
+    }
+
     waitpid(c->pid, &status, 0);
     if(!WIFEXITED(status))
     {
@@ -171,7 +176,7 @@ command* parse_line(const char* s) {
         // You'll add code to handle operators.)
         command *c = nullptr;
         c = new command;
-
+        
         while ((s = parse_shell_token(s, &type, &token)) != nullptr)
         {
 
@@ -183,6 +188,16 @@ command* parse_line(const char* s) {
                 {
                     c->is_background = true;
                 }        
+                if(type == TYPE_SEQUENCE)
+                {
+                    c->next = new command;
+                    c = c->next;
+                }
+                if(type == TYPE_AND)
+                {
+                    c->next = new command;
+                    c = c->next;
+                }
         
                        
         }
