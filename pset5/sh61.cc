@@ -4,6 +4,7 @@
 #include <vector>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <list>
 
 
 // struct command
@@ -12,13 +13,16 @@
 struct command {
     std::vector<std::string> args;
     pid_t pid;      // process ID running this command, -1 if none
-
+    command* next;
+    int op; // Operator following this command. Equals one of the TOKEN_ constants;
+            // always TOKEN_SEQUENCE or TOKEN_BACKGROUND for last in list.
+            // Initialize `next` and `op` when a `command` is allocated.
+    bool is_background;
     command();
     ~command();
 
     pid_t make_child(pid_t pgid);
 };
-
 
 // command::command()
 //    This constructor function initializes a `command` structure. You may
@@ -26,6 +30,8 @@ struct command {
 
 command::command() {
     this->pid = -1;
+    next = nullptr;
+    op = TYPE_SEQUENCE;
 }
 
 
@@ -58,40 +64,41 @@ pid_t command::make_child(pid_t pgid) {
     assert(this->args.size() > 0);
     (void) pgid; // You won’t need `pgid` until part 8.
     // Your code here!
-    
-    pid_t child = fork();
-
-    if(child < 0)
+    pid_t p;
+    std::vector<char *> argc;
+    int r;
+    switch(p = fork())
     {
-        fprintf(stderr, "fork() failed.\n");
-        _exit(1);
-    }
-    //child process
-    else if(child == 0)
-    {    
-        this->pid = child;
-        std::vector<char *> argc;
-        for (auto const &a : args)
-        {
-            argc.emplace_back(const_cast<char *>(a.c_str()));
-        }
-        // NULL terminate
-        argc.push_back(nullptr);
-
-        int r = execvp(argc[0], argc.data());
-        
-        if (r == -1)
-        {
-            fprintf(stderr, "execvp() failed.\n");
+        //error
+        case -1:
+            fprintf(stderr, "fork() failed.\n");
             _exit(1);
-        }
-        _exit(0);
+        //child process
+        case 0:
+            
+            for (auto const &a : args)
+            {
+                argc.emplace_back(const_cast<char *>(a.c_str()));
+            }
+            // NULL terminate
+            argc.push_back(nullptr);
+
+            r = execvp(argc[0], argc.data());
+
+            if (r == -1)
+            {
+                fprintf(stderr, "execvp() failed.\n");
+                _exit(1);
+            }
+            _exit(0);
+        //parent process
+        default:
+            int status;
+            (void)waitpid(pid, &status, 0);
+            this->pid = p;
+     
     }
-    //parent process
-    else
-    {
-        return this->pid;
-    }
+    return this->pid;
     
 }
 
@@ -120,20 +127,10 @@ pid_t command::make_child(pid_t pgid) {
 void run(command* c) {
     int status;
     c->make_child(0);
-    pid_t exited_pid = 0;
-    if(exited_pid == 0)
+    waitpid(c->pid, &status, 0);
+    if(!WIFEXITED(status))
     {
-        waitpid(c->pid, &status, WNOHANG);
-        assert(exited_pid == c->pid || exited_pid == 0);
-    } 
-    
-    if (WIFEXITED(status))
-    {
-        
-    }
-    else
-    {
-        fprintf(stderr, "Child exited abnormally [%x]\n", status);
+        perror("Error in run");
     }
 }
 
