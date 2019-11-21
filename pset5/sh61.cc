@@ -61,7 +61,7 @@ pid_t command::make_child(pid_t pgid) {
     
     pid_t child = fork();
 
-    if(child == -1)
+    if(child < 0)
     {
         fprintf(stderr, "fork() failed.\n");
         _exit(1);
@@ -69,7 +69,7 @@ pid_t command::make_child(pid_t pgid) {
     //child process
     else if(child == 0)
     {    
-        this->pid = getpid();
+        this->pid = child;
         std::vector<char *> argc;
         for (auto const &a : args)
         {
@@ -78,7 +78,7 @@ pid_t command::make_child(pid_t pgid) {
         // NULL terminate
         argc.push_back(nullptr);
 
-        int r = execvp(this->args[0].c_str(), argc.data());
+        int r = execvp(argc[0], argc.data());
         
         if (r == -1)
         {
@@ -120,8 +120,13 @@ pid_t command::make_child(pid_t pgid) {
 void run(command* c) {
     int status;
     c->make_child(0);
-    pid_t exited_pid = waitpid(c->pid, &status, WNOHANG);
-    assert(exited_pid == c->pid || exited_pid == 0);
+    pid_t exited_pid = 0;
+    if(exited_pid == 0)
+    {
+        waitpid(c->pid, &status, WNOHANG);
+        assert(exited_pid == c->pid || exited_pid == 0);
+    } 
+    
     if (WIFEXITED(status))
     {
         
