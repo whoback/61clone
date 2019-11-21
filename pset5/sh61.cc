@@ -6,15 +6,15 @@
 #include <sys/wait.h>
 #include <list>
 
-
 // struct command
 //    Data structure describing a command. Add your own stuff.
 
-struct command {
+struct command
+{
     std::vector<std::string> args;
-    pid_t pid;      // process ID running this command, -1 if none
-    command* next;
-    command* command_sibling;
+    pid_t pid; // process ID running this command, -1 if none
+    command *next;
+    command *command_sibling;
     int op; // Operator following this command. Equals one of the TOKEN_ constants;
             // always TOKEN_SEQUENCE or TOKEN_BACKGROUND for last in list.
             // Initialize `next` and `op` when a `command` is allocated.
@@ -29,7 +29,8 @@ struct command {
 //    This constructor function initializes a `command` structure. You may
 //    add stuff to it as you grow the command structure.
 
-command::command() {
+command::command()
+{
     this->pid = -1;
     next = nullptr;
     command_sibling = nullptr;
@@ -37,11 +38,11 @@ command::command() {
     is_background = false;
 }
 
-
 // command::~command()
 //    This destructor function is called to delete a command.
 
-command::~command() {
+command::~command()
+{
 }
 
 struct pipeline
@@ -74,49 +75,46 @@ struct conditional
 //       its own process group (if `pgid == 0`). To avoid race conditions,
 //       this will require TWO calls to `setpgid`.
 
-pid_t command::make_child(pid_t pgid) {
+pid_t command::make_child(pid_t pgid)
+{
     assert(this->args.size() > 0);
-    (void) pgid; // You won’t need `pgid` until part 8.
+    (void)pgid; // You won’t need `pgid` until part 8.
     // Your code here!
     pid_t p;
     std::vector<char *> argc;
     int r;
-    switch(p = fork())
+    switch (p = fork())
     {
-        //error
-        case -1:
-            fprintf(stderr, "fork() failed.\n");
+    //error
+    case -1:
+        fprintf(stderr, "fork() failed.\n");
+        _exit(1);
+    //child process
+    case 0:
+        p = getpid();
+        this->pid = p;
+        for (auto const &a : args)
+        {
+            argc.emplace_back(const_cast<char *>(a.c_str()));
+        }
+        // NULL terminate
+        argc.push_back(nullptr);
+
+        r = execvp(argc[0], argc.data());
+
+        if (r == -1)
+        {
+            fprintf(stderr, "execvp() failed.\n");
             _exit(1);
-        //child process
-        case 0:
-            p = getpid();
-            this->pid = p;
-            for (auto const &a : args)
-            {
-                argc.emplace_back(const_cast<char *>(a.c_str()));
-            }
-            // NULL terminate
-            argc.push_back(nullptr);
-
-            r = execvp(argc[0], argc.data());
-
-            if (r == -1)
-            {
-                fprintf(stderr, "execvp() failed.\n");
-                _exit(1);
-            }
-            _exit(0);
-        //parent process
-        default:
-            int status;
-            (void)waitpid(pid, &status, 0);
-           
-     
+        }
+        _exit(0);
+    //parent process
+    default:
+        int status;
+        (void)waitpid(pid, &status, 0);
     }
     return this->pid;
-    
 }
-
 
 // run(c)
 //    Run the command *list* starting at `c`. Initially this just calls
@@ -139,31 +137,41 @@ pid_t command::make_child(pid_t pgid) {
 //       - Call `claim_foreground(pgid)` before waiting for the pipeline.
 //       - Call `claim_foreground(0)` once the pipeline is complete.
 
-void run(command* c) {
+void run(command *c)
+{
     int status;
-    if(!c->args.empty())
+    if (!c->args.empty())
     {
         c->make_child(0);
     }
-    if(c->is_background==true)
+    if (c->is_background == true)
     {
-        c->make_child(c->pid);
+        pid_t exited_pid = c->make_child(c->pid);
+        waitpid(exited_pid, &status, WNOHANG);
+        if (WIFEXITED(status))
+        {
+            perror("Error in background");
+        }
     }
-
-    waitpid(c->pid, &status, 0);
-    if(!WIFEXITED(status))
+    else
     {
-        perror("Error in run");
+        waitpid(c->pid, &status, 0);
+        if (WIFEXITED(status))
+        {
+            perror("Error in run");
+        }
     }
+    
+   
 }
-
 
 // parse_line(s)
 //    Parse the command list in `s` and return it. Returns `nullptr` if
 //    `s` is empty (only spaces). You’ll extend it to handle more token
 //    types.
 
-command* parse_line(const char* s) {
+command *parse_line(const char *s)
+{
     int type;
     std::string token;
     // Your code here!
@@ -171,53 +179,62 @@ command* parse_line(const char* s) {
     {
         return nullptr;
     }
-        // build the command
-        // (The handout code treats every token as a normal command word.
-        // You'll add code to handle operators.)
-        command *c = nullptr;
-        c = new command;
-        
-        while ((s = parse_shell_token(s, &type, &token)) != nullptr)
-        {
+    // build the command
+    // (The handout code treats every token as a normal command word.
+    // You'll add code to handle operators.)
+    command *c = nullptr;
+    c = new command;
 
-                if (type == TYPE_NORMAL)
-                {
-                    c->args.push_back(token);
-                }
-                if (type == TYPE_BACKGROUND)
-                {
-                    c->is_background = true;
-                }        
-                if(type == TYPE_SEQUENCE)
-                {
-                    c->next = new command;
-                    c = c->next;
-                }
-                if(type == TYPE_AND)
-                {
-                    c->next = new command;
-                    c = c->next;
-                }
-        
-                       
+    while ((s = parse_shell_token(s, &type, &token)) != nullptr)
+    {
+        if (type == TYPE_NORMAL)
+        {
+            
+            c->args.push_back(token);
         }
+        else if (type == TYPE_BACKGROUND)
+        {
+            c->is_background = true;
+            c->next = new command;
+            c = c->next;
+        }
+        else if (type == TYPE_SEQUENCE)
+        {
+            c->op = type;
+            c->next = new command;
+            c = c->next;
+        }
+        else if (type == TYPE_AND)
+        {
+            c->op = type;
+            c->next = new command;
+            c = c->next;
+        }
+        else{
+            c->next = nullptr;
+        }
+    }
     return c;
 }
 
-int main(int argc, char* argv[]) {
-    FILE* command_file = stdin;
+int main(int argc, char *argv[])
+{
+    FILE *command_file = stdin;
     bool quiet = false;
 
     // Check for '-q' option: be quiet (print no prompts)
-    if (argc > 1 && strcmp(argv[1], "-q") == 0) {
+    if (argc > 1 && strcmp(argv[1], "-q") == 0)
+    {
         quiet = true;
         --argc, ++argv;
     }
 
     // Check for filename option: read commands from file
-    if (argc > 1) {
+    if (argc > 1)
+    {
         command_file = fopen(argv[1], "rb");
-        if (!command_file) {
+        if (!command_file)
+        {
             perror(argv[1]);
             exit(1);
         }
@@ -233,22 +250,29 @@ int main(int argc, char* argv[]) {
     int bufpos = 0;
     bool needprompt = true;
 
-    while (!feof(command_file)) {
+    while (!feof(command_file))
+    {
         // Print the prompt at the beginning of the line
-        if (needprompt && !quiet) {
+        if (needprompt && !quiet)
+        {
             printf("sh61[%d]$ ", getpid());
             fflush(stdout);
             needprompt = false;
         }
 
         // Read a string, checking for error or EOF
-        if (fgets(&buf[bufpos], BUFSIZ - bufpos, command_file) == nullptr) {
-            if (ferror(command_file) && errno == EINTR) {
+        if (fgets(&buf[bufpos], BUFSIZ - bufpos, command_file) == nullptr)
+        {
+            if (ferror(command_file) && errno == EINTR)
+            {
                 // ignore EINTR errors
                 clearerr(command_file);
                 buf[bufpos] = 0;
-            } else {
-                if (ferror(command_file)) {
+            }
+            else
+            {
+                if (ferror(command_file))
+                {
                     perror("sh61");
                 }
                 break;
@@ -257,8 +281,10 @@ int main(int argc, char* argv[]) {
 
         // If a complete command line has been provided, run it
         bufpos = strlen(buf);
-        if (bufpos == BUFSIZ - 1 || (bufpos > 0 && buf[bufpos - 1] == '\n')) {
-            if (command* c = parse_line(buf)) {
+        if (bufpos == BUFSIZ - 1 || (bufpos > 0 && buf[bufpos - 1] == '\n'))
+        {
+            if (command *c = parse_line(buf))
+            {
                 run(c);
                 delete c;
             }
