@@ -14,6 +14,7 @@ struct command {
     std::vector<std::string> args;
     pid_t pid;      // process ID running this command, -1 if none
     command* next;
+    command* command_sibling;
     int op; // Operator following this command. Equals one of the TOKEN_ constants;
             // always TOKEN_SEQUENCE or TOKEN_BACKGROUND for last in list.
             // Initialize `next` and `op` when a `command` is allocated.
@@ -31,7 +32,9 @@ struct command {
 command::command() {
     this->pid = -1;
     next = nullptr;
+    command_sibling = nullptr;
     op = TYPE_SEQUENCE;
+    is_background = false;
 }
 
 
@@ -41,7 +44,18 @@ command::command() {
 command::~command() {
 }
 
-
+struct pipeline
+{
+    command *command_child = nullptr;
+    pipeline *pipeline_sibling = nullptr;
+    bool is_or = false;
+};
+struct conditional
+{
+    pipeline *pipeline_child = nullptr;
+    conditional *conditional_sibling = nullptr;
+    bool is_background = false;
+};
 // COMMAND EXECUTION
 
 // command::make_child(pgid)
@@ -75,7 +89,8 @@ pid_t command::make_child(pid_t pgid) {
             _exit(1);
         //child process
         case 0:
-            
+            p = getpid();
+            this->pid = p;
             for (auto const &a : args)
             {
                 argc.emplace_back(const_cast<char *>(a.c_str()));
@@ -95,7 +110,7 @@ pid_t command::make_child(pid_t pgid) {
         default:
             int status;
             (void)waitpid(pid, &status, 0);
-            this->pid = p;
+           
      
     }
     return this->pid;
@@ -126,7 +141,10 @@ pid_t command::make_child(pid_t pgid) {
 
 void run(command* c) {
     int status;
-    c->make_child(0);
+    if(!c->args.empty())
+    {
+        c->make_child(0);
+    }
     waitpid(c->pid, &status, 0);
     if(!WIFEXITED(status))
     {
@@ -144,20 +162,32 @@ command* parse_line(const char* s) {
     int type;
     std::string token;
     // Your code here!
-
-    // build the command
-    // (The handout code treats every token as a normal command word.
-    // You'll add code to handle operators.)
-    command* c = nullptr;
-    while ((s = parse_shell_token(s, &type, &token)) != nullptr) {
-        if (!c) {
-            c = new command;
-        }
-        c->args.push_back(token);
+    if ((s != NULL) && (s[0] == '\0'))
+    {
+        return nullptr;
     }
+        // build the command
+        // (The handout code treats every token as a normal command word.
+        // You'll add code to handle operators.)
+        command *c = nullptr;
+        c = new command;
+
+        while ((s = parse_shell_token(s, &type, &token)) != nullptr)
+        {
+
+                if (type == TYPE_NORMAL)
+                {
+                    c->args.push_back(token);
+                }
+                if (type == TYPE_BACKGROUND)
+                {
+                    c->is_background = true;
+                }        
+        
+                       
+        }
     return c;
 }
-
 
 int main(int argc, char* argv[]) {
     FILE* command_file = stdin;
