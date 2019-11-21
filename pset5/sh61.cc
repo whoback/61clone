@@ -58,28 +58,41 @@ pid_t command::make_child(pid_t pgid) {
     assert(this->args.size() > 0);
     (void) pgid; // You won’t need `pgid` until part 8.
     // Your code here!
-    const char * largs[] = {};
-    for(int i = 0; i< this->args.size(); ++i)
-    {
-        largs[i] = this->args[i].c_str();
-    }
-    printf("Size of largs: %i\n", sizeof(largs));
     
     pid_t child = fork();
-    if(child == 0)
-    {
-        int r = execvp(largs[0], (char**)largs);
-        assert(r>=0);
 
-        this->pid = child;
+    if(child == -1)
+    {
+        fprintf(stderr, "fork() failed.\n");
+        _exit(1);
     }
+    //child process
+    else if(child == 0)
+    {    
+        this->pid = getpid();
+        std::vector<char *> argc;
+        for (auto const &a : args)
+        {
+            argc.emplace_back(const_cast<char *>(a.c_str()));
+        }
+        // NULL terminate
+        argc.push_back(nullptr);
+
+        int r = execvp(this->args[0].c_str(), argc.data());
+        
+        if (r == -1)
+        {
+            fprintf(stderr, "execvp() failed.\n");
+            _exit(1);
+        }
+        _exit(0);
+    }
+    //parent process
     else
     {
-        fprintf(stderr, "command::make_child not done yet\n");
+        return this->pid;
     }
     
-    
-    return this->pid;
 }
 
 
@@ -105,8 +118,18 @@ pid_t command::make_child(pid_t pgid) {
 //       - Call `claim_foreground(0)` once the pipeline is complete.
 
 void run(command* c) {
+    int status;
     c->make_child(0);
-    fprintf(stderr, "command::run not done yet\n");
+    pid_t exited_pid = waitpid(c->pid, &status, WNOHANG);
+    assert(exited_pid == c->pid || exited_pid == 0);
+    if (WIFEXITED(status))
+    {
+        
+    }
+    else
+    {
+        fprintf(stderr, "Child exited abnormally [%x]\n", status);
+    }
 }
 
 
