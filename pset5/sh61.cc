@@ -58,8 +58,27 @@ pid_t command::make_child(pid_t pgid) {
     assert(this->args.size() > 0);
     (void) pgid; // You won’t need `pgid` until part 8.
     // Your code here!
+    const char * largs[] = {};
+    for(int i = 0; i< this->args.size(); ++i)
+    {
+        largs[i] = this->args[i].c_str();
+    }
+    printf("Size of largs: %i\n", sizeof(largs));
+    
+    pid_t child = fork();
+    if(child == 0)
+    {
+        int r = execvp(largs[0], (char**)largs);
+        assert(r>=0);
 
-    fprintf(stderr, "command::make_child not done yet\n");
+        this->pid = child;
+    }
+    else
+    {
+        fprintf(stderr, "command::make_child not done yet\n");
+    }
+    
+    
     return this->pid;
 }
 
