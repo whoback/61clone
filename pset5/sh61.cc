@@ -126,23 +126,31 @@ pid_t command::make_child(pid_t pgid)
 void run(command *c)
 {
     int status;
-    while (c!= nullptr)
+    while (c != nullptr)
     {
-
+        if (c->op == TYPE_SEQUENCE)
+        {
+            break;
+        }
         if (c->is_background == true)
         {
-            c->make_child(0);
-        }
-        else
-        {
-            pid_t exited_pid = c->make_child(0);
-            waitpid(exited_pid, &status, WNOHANG);
-            if (!WIFEXITED(status))
+            pid_t p = fork();
+            if (p == 0)
             {
-                perror("Error in background");
+                c->op = TYPE_SEQUENCE;
+                c->next = nullptr;
+                run(c);
             }
+            c = c->next;
         }
+        
     }
+    pid_t exited_pid = c->make_child(0);
+    // waitpid(exited_pid, &status, WNOHANG);
+    // if (WIFEXITED(status))
+    // {
+    //     perror("Error in background");
+    // }
 }
 
 // parse_line(s)
@@ -163,10 +171,18 @@ command *parse_line(const char *s)
     // (The handout code treats every token as a normal command word.
     // You'll add code to handle operators.)
     command *c = nullptr;
-    c = new command;
+    command *head = nullptr;
 
     while ((s = parse_shell_token(s, &type, &token)) != nullptr)
     {
+        if (!c)
+        {
+            c = new command;
+            if (!head)
+            {
+                head = c;
+            }
+        }
         if (type == TYPE_NORMAL)
         {
             c->args.push_back(token);
@@ -197,7 +213,8 @@ command *parse_line(const char *s)
             c->next = nullptr;
         }
     }
-    return c;
+    c = nullptr;
+    return head;
 }
 
 int main(int argc, char *argv[])
