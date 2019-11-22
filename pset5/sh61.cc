@@ -14,7 +14,6 @@ struct command
     std::vector<std::string> args;
     pid_t pid; // process ID running this command, -1 if none
     command *next;
-    command *command_sibling;
     int op; // Operator following this command. Equals one of the TOKEN_ constants;
             // always TOKEN_SEQUENCE or TOKEN_BACKGROUND for last in list.
             // Initialize `next` and `op` when a `command` is allocated.
@@ -33,7 +32,6 @@ command::command()
 {
     this->pid = -1;
     next = nullptr;
-    command_sibling = nullptr;
     op = TYPE_SEQUENCE;
     is_background = false;
 }
@@ -45,18 +43,6 @@ command::~command()
 {
 }
 
-struct pipeline
-{
-    command *command_child = nullptr;
-    pipeline *pipeline_sibling = nullptr;
-    bool is_or = false;
-};
-struct conditional
-{
-    pipeline *pipeline_child = nullptr;
-    conditional *conditional_sibling = nullptr;
-    bool is_background = false;
-};
 // COMMAND EXECUTION
 
 // command::make_child(pgid)
@@ -77,7 +63,7 @@ struct conditional
 
 pid_t command::make_child(pid_t pgid)
 {
-    assert(this->args.size() > 0);
+    //assert(this->args.size() > 0);
     (void)pgid; // You won’t need `pgid` until part 8.
     // Your code here!
     pid_t p;
@@ -140,29 +126,23 @@ pid_t command::make_child(pid_t pgid)
 void run(command *c)
 {
     int status;
-    if (!c->args.empty())
+    while (c!= nullptr)
     {
-        c->make_child(0);
-    }
-    if (c->is_background == true)
-    {
-        pid_t exited_pid = c->make_child(c->pid);
-        waitpid(exited_pid, &status, WNOHANG);
-        if (WIFEXITED(status))
+
+        if (c->is_background == true)
         {
-            perror("Error in background");
+            c->make_child(0);
+        }
+        else
+        {
+            pid_t exited_pid = c->make_child(0);
+            waitpid(exited_pid, &status, WNOHANG);
+            if (!WIFEXITED(status))
+            {
+                perror("Error in background");
+            }
         }
     }
-    else
-    {
-        waitpid(c->pid, &status, 0);
-        if (WIFEXITED(status))
-        {
-            perror("Error in run");
-        }
-    }
-    
-   
 }
 
 // parse_line(s)
@@ -189,28 +169,31 @@ command *parse_line(const char *s)
     {
         if (type == TYPE_NORMAL)
         {
-            
             c->args.push_back(token);
         }
         else if (type == TYPE_BACKGROUND)
         {
+            // c->args.push_back(token);
             c->is_background = true;
             c->next = new command;
             c = c->next;
         }
         else if (type == TYPE_SEQUENCE)
         {
+            // c->args.push_back(token);
             c->op = type;
             c->next = new command;
             c = c->next;
         }
         else if (type == TYPE_AND)
         {
+            // c->args.push_back(token);
             c->op = type;
             c->next = new command;
             c = c->next;
         }
-        else{
+        else
+        {
             c->next = nullptr;
         }
     }
