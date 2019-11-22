@@ -4,6 +4,7 @@
 #include <vector>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <list>
 
 // struct command
 //    Data structure describing a command. Add your own stuff.
@@ -12,7 +13,11 @@ struct command
 {
     std::vector<std::string> args;
     pid_t pid; // process ID running this command, -1 if none
-
+    command *next;
+    int op; // Operator following this command. Equals one of the TOKEN_ constants;
+            // always TOKEN_SEQUENCE or TOKEN_BACKGROUND for last in list.
+            // Initialize `next` and `op` when a `command` is allocated.
+    bool is_background;
     command();
     ~command();
 
@@ -26,6 +31,9 @@ struct command
 command::command()
 {
     this->pid = -1;
+    next = nullptr;
+    op = TYPE_SEQUENCE;
+    is_background = false;
 }
 
 // command::~command()
@@ -55,7 +63,7 @@ command::~command()
 
 pid_t command::make_child(pid_t pgid)
 {
-    assert(this->args.size() > 0);
+    //assert(this->args.size() > 0);
     (void)pgid; // You won’t need `pgid` until part 8.
     // Your code here!
     pid_t p;
@@ -117,8 +125,32 @@ pid_t command::make_child(pid_t pgid)
 
 void run(command *c)
 {
-    c->make_child(0);
-    
+    int status;
+    while (c != nullptr)
+    {
+        if (c->op == TYPE_SEQUENCE)
+        {
+            break;
+        }
+        if (c->is_background == true)
+        {
+            pid_t p = fork();
+            if (p == 0)
+            {
+                c->op = TYPE_SEQUENCE;
+                c->next = nullptr;
+                run(c);
+            }
+            c = c->next;
+        }
+        
+    }
+    pid_t exited_pid = c->make_child(0);
+    // waitpid(exited_pid, &status, WNOHANG);
+    // if (WIFEXITED(status))
+    // {
+    //     perror("Error in background");
+    // }
 }
 
 // parse_line(s)
@@ -131,20 +163,65 @@ command *parse_line(const char *s)
     int type;
     std::string token;
     // Your code here!
-
+    if ((s != NULL) && (s[0] == '\0'))
+    {
+        return nullptr;
+    }
     // build the command
     // (The handout code treats every token as a normal command word.
     // You'll add code to handle operators.)
     command *c = nullptr;
+    command *head = nullptr;
+
     while ((s = parse_shell_token(s, &type, &token)) != nullptr)
     {
         if (!c)
         {
             c = new command;
+            if (!head)
+            {
+                head = c;
+            }
         }
-        c->args.push_back(token);
+        if (type == TYPE_NORMAL)
+        {
+            c->args.push_back(token);
+        }
+        else if (type == TYPE_BACKGROUND)
+        {
+            // c->args.push_back(token);
+            c->is_background = true;
+            c->next = new command;
+            c = c->next;
+        }
+        else if (type == TYPE_SEQUENCE)
+        {
+            // c->args.push_back(token);
+            c->op = type;
+            c->next = new command;
+            c = c->next;
+        }
+        else if (type == TYPE_AND)
+        {
+            // c->args.push_back(token);
+            c->op = type;
+            c->next = new command;
+            c = c->next;
+        }
+        else if (type == TYPE_OR)
+        {
+            // c->args.push_back(token);
+            c->op = type;
+            c->next = new command;
+            c = c->next;
+        }
+        else
+        {
+            c->next = nullptr;
+        }
     }
-    return c;
+    c = nullptr;
+    return head;
 }
 
 int main(int argc, char *argv[])
