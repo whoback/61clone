@@ -135,6 +135,11 @@ void run(command *c)
         if (c->is_background == true)
         {
             pid_t p = fork();
+            if(p == -1)
+            {
+                fprintf(stderr, "fork() failed.\n");
+                _exit(1);
+            }
             if (p == 0)
             {
                 c->op = TYPE_SEQUENCE;

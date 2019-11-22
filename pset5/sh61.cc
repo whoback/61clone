@@ -12,7 +12,7 @@ struct command
 {
     std::vector<std::string> args;
     pid_t pid; // process ID running this command, -1 if none
-
+    int op;
     command();
     ~command();
 
@@ -117,8 +117,22 @@ pid_t command::make_child(pid_t pgid)
 
 void run(command *c)
 {
-    c->make_child(0);
-    
+    int status;
+    if(c->op == TYPE_BACKGROUND)
+    {
+        pid_t p = fork();
+        if (p == -1)
+        {
+            fprintf(stderr, "fork() failed.\n");
+            _exit(1);
+        }
+        if(p == 0)
+        {
+            c->make_child(0);
+        }
+    }
+    pid_t exited_pid = c->make_child(0);
+    waitpid(exited_pid, &status, WNOHANG);
 }
 
 // parse_line(s)
@@ -142,7 +156,26 @@ command *parse_line(const char *s)
         {
             c = new command;
         }
-        c->args.push_back(token);
+        if(type == TYPE_NORMAL)
+        {
+            c->args.push_back(token);
+        }
+        if(type == TYPE_BACKGROUND)
+        {
+            c->op = TYPE_BACKGROUND;
+        }
+        if (type == TYPE_SEQUENCE)
+        {
+            c->op = TYPE_SEQUENCE;
+        }
+        if (type == TYPE_AND)
+        {
+            c->op = TYPE_AND;
+        }
+        if (type == TYPE_OR)
+        {
+            c->op = TYPE_OR;
+        }
     }
     return c;
 }
