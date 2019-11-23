@@ -13,7 +13,7 @@ struct command
     std::vector<std::string> args;
     pid_t pid; // process ID running this command, -1 if none
     int op;
-    command* next;
+    command *next = nullptr;
     command();
     ~command();
 
@@ -27,6 +27,8 @@ struct command
 command::command()
 {
     this->pid = -1;
+    this->op = TYPE_SEQUENCE;
+    this->next = nullptr;
 }
 
 // command::~command()
@@ -34,6 +36,7 @@ command::command()
 
 command::~command()
 {
+    delete next;
 }
 
 // COMMAND EXECUTION
@@ -60,6 +63,7 @@ pid_t command::make_child(pid_t pgid)
     (void)pgid; // You won’t need `pgid` until part 8.
     // Your code here!
     pid_t p;
+    pid_t c;
     std::vector<char *> argc;
     int r;
     switch (p = fork())
@@ -68,9 +72,12 @@ pid_t command::make_child(pid_t pgid)
     case -1:
         fprintf(stderr, "fork() failed.\n");
         _exit(1);
+        break;
     //child process
     case 0:
-        p = getpid();
+
+        c = getpid();
+        assert(c > p);
         this->pid = p;
         for (auto const &a : args)
         {
@@ -87,6 +94,8 @@ pid_t command::make_child(pid_t pgid)
             _exit(1);
         }
         _exit(0);
+        return this->pid;
+        break;
     //parent process
     default:
         int status;
@@ -119,24 +128,37 @@ pid_t command::make_child(pid_t pgid)
 void run(command *c)
 {
     int status;
-    if(c->op == TYPE_BACKGROUND)
+    while (c != nullptr)
     {
-        pid_t p = fork();
-        if (p == -1)
+ 
+        if (chain_in_background(c) == true)
         {
-            fprintf(stderr, "fork() failed.\n");
-            _exit(1);
+            pid_t p = fork();
+            if (p == -1)
+            {
+                fprintf(stderr, "fork() failed.\n");
+                _exit(1);
+            }
+            if (p == 0)
+            {
+                c->op = TYPE_SEQUENCE;
+                c->next = nullptr;
+                run(c);
+                _exit(0);
+                // c->make_child(0);
+            }
+            c = c->next;
         }
-        if(p == 0)
+        if (c->op == TYPE_SEQUENCE)
         {
-            c->make_child(0);
+            break;
         }
+        c = c->next;
+        // c->make_child(0);
     }
-    else{
+    // c->make_child(0);
     pid_t exited_pid = c->make_child(0);
-    waitpid(exited_pid, &status, WNOHANG);
-        
-    }
+    waitpid(exited_pid, &status, 0);
 }
 
 // parse_line(s)
@@ -149,41 +171,64 @@ command *parse_line(const char *s)
     int type;
     std::string token;
     // Your code here!
-
     // build the command
     // (The handout code treats every token as a normal command word.
     // You'll add code to handle operators.)
     command *c = nullptr;
+    command *head = nullptr;
     while ((s = parse_shell_token(s, &type, &token)) != nullptr)
     {
         if (!c)
         {
             c = new command;
+            if (!head)
+            {
+                head = c;
+            }
         }
-        if(type == TYPE_NORMAL)
+        if (type == TYPE_NORMAL)
         {
             c->args.push_back(token);
         }
-        if(type == TYPE_BACKGROUND)
+        if (type == TYPE_BACKGROUND)
         {
             c->op = TYPE_BACKGROUND;
+            c->next = nullptr;
+            c = c->next;
         }
-        if (type == TYPE_SEQUENCE)
+        if (type == TYPE_SEQUENCE && token != "")
         {
+            // printf("SEQ\n");
             c->op = TYPE_SEQUENCE;
+            c->next = nullptr;
+            c = c->next;
         }
         if (type == TYPE_AND)
         {
             c->op = TYPE_AND;
+            c->next = nullptr;
+            c = c->next;
         }
         if (type == TYPE_OR)
         {
             c->op = TYPE_OR;
+            c->next = nullptr;
+            c = c->next;
         }
     }
-    return c;
+    c = nullptr;
+    return head;
 }
-
+bool chain_in_background(command *c)
+{
+    //loop through list 
+    while (c->op != TYPE_SEQUENCE && c->op != TYPE_BACKGROUND)
+    {
+        c = c->next;
+    }
+    //if true this in the background 
+    return c->op == TYPE_BACKGROUND;
+}
 int main(int argc, char *argv[])
 {
     FILE *command_file = stdin;

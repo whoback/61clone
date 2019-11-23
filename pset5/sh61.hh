@@ -49,6 +49,6 @@ inline int set_signal_handler(int signo, void (*handler)(int)) {
     sa.sa_flags = 0;
     return sigaction(signo, &sa, NULL);
 }
-// bool chain_in_background(command *c);
+bool chain_in_background(struct command*);
 
 #endif

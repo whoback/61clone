@@ -138,7 +138,7 @@ void run(command *c)
             if(p == -1)
             {
                 fprintf(stderr, "fork() failed.\n");
-                _exit(1);
+        _exit(1);
             }
             if (p == 0)
             {
@@ -194,28 +194,27 @@ command *parse_line(const char *s)
         }
         else if (type == TYPE_BACKGROUND)
         {
-            // c->args.push_back(token);
             c->is_background = true;
             c->next = new command;
             c = c->next;
         }
         else if (type == TYPE_SEQUENCE)
         {
-            // c->args.push_back(token);
+            
             c->op = type;
             c->next = new command;
             c = c->next;
         }
         else if (type == TYPE_AND)
         {
-            // c->args.push_back(token);
+            
             c->op = type;
             c->next = new command;
             c = c->next;
         }
         else if (type == TYPE_OR)
         {
-            // c->args.push_back(token);
+            
             c->op = type;
             c->next = new command;
             c = c->next;
