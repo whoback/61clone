@@ -13,6 +13,7 @@ struct command
     std::vector<std::string> args;
     pid_t pid; // process ID running this command, -1 if none
     int op;
+    command* next;
     command();
     ~command();
 
@@ -131,8 +132,11 @@ void run(command *c)
             c->make_child(0);
         }
     }
+    else{
     pid_t exited_pid = c->make_child(0);
     waitpid(exited_pid, &status, WNOHANG);
+        
+    }
 }
 
 // parse_line(s)
