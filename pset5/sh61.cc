@@ -13,7 +13,7 @@ struct command
     std::vector<std::string> args;
     pid_t pid; // process ID running this command, -1 if none
     int op;
-    command *next = nullptr;
+    command *next;
     command();
     ~command();
 
@@ -29,6 +29,7 @@ command::command()
     this->pid = -1;
     this->op = TYPE_SEQUENCE;
     this->next = nullptr;
+    
 }
 
 // command::~command()
@@ -36,7 +37,7 @@ command::command()
 
 command::~command()
 {
-    delete next;
+    // delete next;
 }
 
 // COMMAND EXECUTION
@@ -59,26 +60,21 @@ command::~command()
 
 pid_t command::make_child(pid_t pgid)
 {
-    assert(this->args.size() > 0);
+    // assert(this->args.size() > 0);
     (void)pgid; // You won’t need `pgid` until part 8.
     // Your code here!
     pid_t p;
-    pid_t c;
     std::vector<char *> argc;
     int r;
-    switch (p = fork())
+    
+    p = fork();
+    if (p == -1)
     {
-    //error
-    case -1:
-        fprintf(stderr, "fork() failed.\n");
+        // fprintf(stderr, "Error: fork() in make_child failed to execute\n");
         _exit(1);
-        break;
-    //child process
-    case 0:
-
-        c = getpid();
-        assert(c > p);
-        this->pid = p;
+    }
+    else if(p == 0)
+    {
         for (auto const &a : args)
         {
             argc.emplace_back(const_cast<char *>(a.c_str()));
@@ -87,20 +83,19 @@ pid_t command::make_child(pid_t pgid)
         argc.push_back(nullptr);
 
         r = execvp(argc[0], argc.data());
-
         if (r == -1)
         {
-            fprintf(stderr, "execvp() failed.\n");
+            // fprintf(stderr, "execvp() failed.\n");
+            // perror("exec failed:");
             _exit(1);
         }
         _exit(0);
-        return this->pid;
-        break;
-    //parent process
-    default:
-        int status;
-        (void)waitpid(pid, &status, 0);
     }
+    else
+    {
+        this->pid = p;
+    }
+
     return this->pid;
 }
 
@@ -128,15 +123,18 @@ pid_t command::make_child(pid_t pgid)
 void run(command *c)
 {
     int status;
+    pid_t exited_pid;
+    // bool ret = chain_in_background(c);
+    
     while (c != nullptr)
     {
- 
-        if (chain_in_background(c) == true)
+        if (c->op == TYPE_BACKGROUND)
         {
+            // printf("Made it to bg\n");
             pid_t p = fork();
             if (p == -1)
             {
-                fprintf(stderr, "fork() failed.\n");
+                // fprintf(stderr, "fork() failed.\n");
                 _exit(1);
             }
             if (p == 0)
@@ -145,20 +143,21 @@ void run(command *c)
                 c->next = nullptr;
                 run(c);
                 _exit(0);
-                // c->make_child(0);
             }
-            c = c->next;
         }
-        if (c->op == TYPE_SEQUENCE)
+        else
         {
-            break;
+            pid_t p = c->make_child(0);
+            exited_pid = waitpid(p, &status, 0);
+            // if (!WIFEXITED(status))
+            // {
+            //     fprintf(stderr, "Child exited abnormally [%x]\n", status);
+            // }
         }
         c = c->next;
-        // c->make_child(0);
     }
-    // c->make_child(0);
-    pid_t exited_pid = c->make_child(0);
-    waitpid(exited_pid, &status, 0);
+    
+    
 }
 
 // parse_line(s)
@@ -186,37 +185,37 @@ command *parse_line(const char *s)
                 head = c;
             }
         }
-        if (type == TYPE_NORMAL)
+        if(type == TYPE_NORMAL)
         {
             c->args.push_back(token);
         }
+
         if (type == TYPE_BACKGROUND)
         {
-            c->op = TYPE_BACKGROUND;
-            c->next = nullptr;
+           c->op = type;
+           c->next = new command;
+           c = c->next;
+         }
+        if (type == TYPE_SEQUENCE)
+        {
+            c->op = type;
+            c->next = new command;
             c = c->next;
         }
-        if (type == TYPE_SEQUENCE && token != "")
+        if(type == TYPE_AND) 
         {
-            // printf("SEQ\n");
-            c->op = TYPE_SEQUENCE;
-            c->next = nullptr;
+            c->op = type;
+            c->next = new command;
             c = c->next;
         }
-        if (type == TYPE_AND)
+        if(type == TYPE_OR)
         {
-            c->op = TYPE_AND;
-            c->next = nullptr;
-            c = c->next;
-        }
-        if (type == TYPE_OR)
-        {
-            c->op = TYPE_OR;
-            c->next = nullptr;
+            c->op = type;
+            c->next = new command;
             c = c->next;
         }
     }
-    c = nullptr;
+    // c = nullptr;
     return head;
 }
 bool chain_in_background(command *c)
@@ -224,6 +223,7 @@ bool chain_in_background(command *c)
     //loop through list 
     while (c->op != TYPE_SEQUENCE && c->op != TYPE_BACKGROUND)
     {
+        // printf("type: %d\n", c->op);
         c = c->next;
     }
     //if true this in the background 
