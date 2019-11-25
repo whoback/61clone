@@ -146,38 +146,46 @@ void run(command *c)
         }
         if (c->op == TYPE_AND || c->op == TYPE_OR)
         {
+            pid_t p = c->make_child(0);
+            exited_pid = waitpid(p, &status, 0);
             if (c->op == TYPE_OR)
             {
-                pid_t p = c->make_child(0);
-                exited_pid = waitpid(p, &status, 0);
                 // #With ||, the 2nd command runs ONLY if the first
                 // #command DOES NOT exit with status 0.
-                if (exited_pid == 0)
+                if (WIFEXITED(status))
                 {
-                    c = c->next;
+                    if(WEXITSTATUS(status) == 0)
+                    {
+                        // printf("Correct for OR");
+                        c = c->next;
+                    }
                 }
             }
-            if (c->op == TYPE_AND)
+            else if (c->op == TYPE_AND)
             {
-                pid_t p = c->make_child(0);
-                exited_pid = waitpid(p, &status, 0);
+                
                 // #With &&, though, the 2nd command runs ONLY if
                 // #the first command exits with status 0.
-                if (exited_pid != 0)
+                if (WIFEXITED(status))
                 {
-                    // should skip 2nd command
-                    c = c->next;
+                    if (WEXITSTATUS(status) != 0)
+                    {
+                        // printf("Correct for OR");
+                        c = c->next;
+                    }
                 }
             }
         }
-        //just run a command
-        pid_t p = c->make_child(0);
-        exited_pid = waitpid(p, &status, 0);
-        // if (!WIFEXITED(status))
-        // {
-        //     fprintf(stderr, "Child exited abnormally [%x]\n", status);
-        // }}
-
+        else
+        {
+            //just run a command
+            pid_t p = c->make_child(0);
+            exited_pid = waitpid(p, &status, 0);
+            // if (!WIFEXITED(status))
+            // {
+            //     fprintf(stderr, "Child exited abnormally [%x]\n", status);
+            // }}
+        }
         //move forward to next command
         c = c->next;
     }
