@@ -13,6 +13,7 @@ struct command
     std::vector<std::string> args;
     pid_t pid; // process ID running this command, -1 if none
     int op;
+    int cond;
     command *next;
     command();
     ~command();
@@ -29,7 +30,7 @@ command::command()
     this->pid = -1;
     this->op = TYPE_SEQUENCE;
     this->next = nullptr;
-    
+    this->cond = -1;
 }
 
 // command::~command()
@@ -66,14 +67,14 @@ pid_t command::make_child(pid_t pgid)
     pid_t p;
     std::vector<char *> argc;
     int r;
-    
+
     p = fork();
     if (p == -1)
     {
         // fprintf(stderr, "Error: fork() in make_child failed to execute\n");
         _exit(1);
     }
-    else if(p == 0)
+    else if (p == 0)
     {
         for (auto const &a : args)
         {
@@ -125,16 +126,14 @@ void run(command *c)
     int status;
     pid_t exited_pid;
     // bool ret = chain_in_background(c);
-    
+
     while (c != nullptr)
     {
         if (c->op == TYPE_BACKGROUND)
         {
-            // printf("Made it to bg\n");
             pid_t p = fork();
             if (p == -1)
             {
-                // fprintf(stderr, "fork() failed.\n");
                 _exit(1);
             }
             if (p == 0)
@@ -145,19 +144,43 @@ void run(command *c)
                 _exit(0);
             }
         }
-        else
+        if (c->op == TYPE_AND || c->op == TYPE_OR)
         {
-            pid_t p = c->make_child(0);
-            exited_pid = waitpid(p, &status, 0);
-            // if (!WIFEXITED(status))
-            // {
-            //     fprintf(stderr, "Child exited abnormally [%x]\n", status);
-            // }
+            if (c->op == TYPE_OR)
+            {
+                pid_t p = c->make_child(0);
+                exited_pid = waitpid(p, &status, 0);
+                // #With ||, the 2nd command runs ONLY if the first
+                // #command DOES NOT exit with status 0.
+                if (exited_pid == 0)
+                {
+                    c = c->next;
+                }
+            }
+            if (c->op == TYPE_AND)
+            {
+                pid_t p = c->make_child(0);
+                exited_pid = waitpid(p, &status, 0);
+                // #With &&, though, the 2nd command runs ONLY if
+                // #the first command exits with status 0.
+                if (exited_pid != 0)
+                {
+                    // should skip 2nd command
+                    c = c->next;
+                }
+            }
         }
+        //just run a command
+        pid_t p = c->make_child(0);
+        exited_pid = waitpid(p, &status, 0);
+        // if (!WIFEXITED(status))
+        // {
+        //     fprintf(stderr, "Child exited abnormally [%x]\n", status);
+        // }}
+
+        //move forward to next command
         c = c->next;
     }
-    
-    
 }
 
 // parse_line(s)
@@ -185,32 +208,34 @@ command *parse_line(const char *s)
                 head = c;
             }
         }
-        if(type == TYPE_NORMAL)
+        if (type == TYPE_NORMAL)
         {
             c->args.push_back(token);
         }
 
         if (type == TYPE_BACKGROUND)
         {
-           c->op = type;
-           c->next = new command;
-           c = c->next;
-         }
+            c->op = type;
+            c->next = new command;
+            c = c->next;
+        }
         if (type == TYPE_SEQUENCE)
         {
             c->op = type;
             c->next = new command;
             c = c->next;
         }
-        if(type == TYPE_AND) 
+        if (type == TYPE_AND)
         {
             c->op = type;
+            c->cond = 1;
             c->next = new command;
             c = c->next;
         }
-        if(type == TYPE_OR)
+        if (type == TYPE_OR)
         {
             c->op = type;
+            c->cond = 1;
             c->next = new command;
             c = c->next;
         }
@@ -220,13 +245,13 @@ command *parse_line(const char *s)
 }
 bool chain_in_background(command *c)
 {
-    //loop through list 
+    //loop through list
     while (c->op != TYPE_SEQUENCE && c->op != TYPE_BACKGROUND)
     {
         // printf("type: %d\n", c->op);
         c = c->next;
     }
-    //if true this in the background 
+    //if true this in the background
     return c->op == TYPE_BACKGROUND;
 }
 int main(int argc, char *argv[])
