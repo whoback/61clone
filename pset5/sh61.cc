@@ -423,6 +423,10 @@ int main(int argc, char *argv[])
 
         // Handle zombie processes and/or interrupt requests
         // Your code here!
+        int wstatus;
+        while (waitpid(-1, &wstatus, WNOHANG) > 0)
+        {
+        }
     }
 
     return 0;
