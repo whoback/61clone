@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <string>
 
+#define CONDMAGIC          8675309
 #define TYPE_NORMAL        0   // normal command word
 #define TYPE_REDIRECTION   1   // redirection operator (>, <, 2>)
 

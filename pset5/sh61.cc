@@ -124,68 +124,120 @@ pid_t command::make_child(pid_t pgid)
 void run(command *c)
 {
     int status;
+    int prev_type = CONDMAGIC;
+    int prev_status = CONDMAGIC;
     pid_t exited_pid;
-    // bool ret = chain_in_background(c);
-
-    while (c != nullptr)
+    //bool ret = chain_in_background(c);
+    //do we have a bg chain?
+    command *bghead = nullptr;
+    command *restoflist = nullptr;
+    if (chain_in_background(c))
     {
-        if (c->op == TYPE_BACKGROUND)
+        bghead = c;
+        while (c != nullptr)
         {
-            pid_t p = fork();
-            if (p == -1)
-            {
-                _exit(1);
-            }
-            if (p == 0)
-            {
-                c->op = TYPE_SEQUENCE;
-                c->next = nullptr;
-                run(c);
-                _exit(0);
-            }
-        }
-        if (c->op == TYPE_AND || c->op == TYPE_OR)
-        {
-            pid_t p = c->make_child(0);
-            exited_pid = waitpid(p, &status, 0);
-            if (c->op == TYPE_OR)
-            {
-                // #With ||, the 2nd command runs ONLY if the first
-                // #command DOES NOT exit with status 0.
-                if (WIFEXITED(status))
-                {
-                    if(WEXITSTATUS(status) == 0)
-                    {
-                        // printf("Correct for OR");
-                        c = c->next;
-                    }
-                }
-            }
-            else if (c->op == TYPE_AND)
+            if (c->op == TYPE_BACKGROUND)
             {
                 
-                // #With &&, though, the 2nd command runs ONLY if
-                // #the first command exits with status 0.
-                if (WIFEXITED(status))
-                {
-                    if (WEXITSTATUS(status) != 0)
-                    {
-                        // printf("Correct for OR");
-                        c = c->next;
-                    }
-                }
+                c->op = TYPE_SEQUENCE;
+                restoflist = c->next;
+                c->next = nullptr;
+                break;
             }
+            c = c->next;
         }
-        else
+        pid_t p = fork();
+        if (p == -1)
+        {
+            _exit(1);
+        }
+        if (p == 0)
+        {
+            run(bghead);
+            _exit(0);
+        }
+
+        run(restoflist);
+        _exit(0);
+        // return;
+    }
+    while (c != nullptr)
+    {
+        if (c->op == TYPE_SEQUENCE)
         {
             //just run a command
             pid_t p = c->make_child(0);
             exited_pid = waitpid(p, &status, 0);
-            // if (!WIFEXITED(status))
-            // {
-            //     fprintf(stderr, "Child exited abnormally [%x]\n", status);
-            // }}
+            if (WIFEXITED(status) !=0)
+            {
+                prev_status = WEXITSTATUS(status);
+            }
+            prev_type = c->op;
         }
+        else if(c->op == TYPE_AND)
+        {
+           if(prev_type == CONDMAGIC)
+           {
+               pid_t p = c->make_child(0);
+               exited_pid = waitpid(p, &status, 0);
+               if (WIFEXITED(status) != 0)
+               {
+                   prev_status = WEXITSTATUS(status);
+               }
+               prev_type = c->op;
+           }
+           prev_type = c->op;
+        }
+        else if(c->op == TYPE_OR)
+        {
+            if (prev_type == CONDMAGIC)
+            {
+                pid_t p = c->make_child(0);
+                exited_pid = waitpid(p, &status, 0);
+                if (WIFEXITED(status) != 0)
+                {
+                    prev_status = WEXITSTATUS(status);
+                }
+                prev_type = c->op;
+            }
+            prev_type = c->op;
+        }
+        
+        //check if the previous type was a conditional
+        else if (prev_type == TYPE_OR)
+        {
+            // #With ||, the 2nd command runs ONLY if the first
+            // #command DOES NOT exit with status 0.
+            if (prev_status != 0)
+            {
+                pid_t p = c->make_child(0);
+                exited_pid = waitpid(p, &status, 0);
+                if (WIFEXITED(status) != 0)
+                {
+                    prev_status = WEXITSTATUS(status);
+                }
+                prev_type = c->op;
+            }
+            prev_type = c->op;
+        }
+        else if (prev_type == TYPE_AND)
+        {
+            // #With &&, the 2nd command runs ONLY if the first
+            // #command DOES  exit with status 0.
+            if (prev_status == 0)
+            {
+                // printf("AND\n");
+                pid_t p = c->make_child(0);
+                exited_pid = waitpid(p, &status, 0);
+                if (WIFEXITED(status) != 0)
+                {
+                    prev_status = WEXITSTATUS(status);
+                }
+                prev_type = c->op;
+            }
+            prev_type = c->op;
+        }
+
         //move forward to next command
         c = c->next;
     }
