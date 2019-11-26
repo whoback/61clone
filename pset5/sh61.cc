@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+volatile sig_atomic_t interrupt = 0;
+
 // struct command
 //    Data structure describing a command. Add your own stuff.
 
@@ -12,6 +14,7 @@ struct command
 {
     std::vector<std::string> args;
     pid_t pid; // process ID running this command, -1 if none
+    pid_t pgid;
     int op;
     int cond;
     int pipe_read_end;
@@ -36,6 +39,7 @@ struct command
 command::command()
 {
     this->pid = -1;
+    this->pgid = -1;
     this->op = TYPE_SEQUENCE;
     this->next = nullptr;
     this->cond = -1;
@@ -93,6 +97,17 @@ pid_t command::make_child(pid_t pgid)
         if(this->next)
         {
             this->next->pipe_read_end = inpfd[0];
+            this->next->pgid = pgid;
+        }
+    }
+
+    //CD
+    if(args[0] == "cd")
+    {
+        r = chdir(args[1].c_str());
+        if (r != 0)
+        {
+            chdir("/");
         }
     }
     p = fork();
@@ -104,6 +119,12 @@ pid_t command::make_child(pid_t pgid)
     // in child
     else if (p == 0)
     {
+        if(this->pipe_start)
+        {
+            pgid = getpid();
+            this->next->pgid = pgid;
+        }
+        setpgid(getpid(), pgid);
         dup2(this->pipe_read_end, 0);
         dup2(this->pipe_write_end, 1);
 
@@ -237,12 +258,18 @@ void run(command *c)
         if (p == 0)
         {
             run(bghead);
+            delete(bghead);
             _exit(0);
         }
 
         run(restoflist);
+        delete(restoflist);
         _exit(0);
         // return;
+    }
+    if (c->args.empty())
+    {
+        c = c->next;
     }
     while (c != nullptr)
     {
@@ -335,7 +362,7 @@ command *parse_line(const char *s)
             c->next = new command;
             c = c->next;
         }
-        if (type == TYPE_SEQUENCE)
+        if (type == TYPE_SEQUENCE && token != "")
         {
             c->op = type;
             c->next = new command;
@@ -398,6 +425,11 @@ bool chain_in_background(command *c)
     //if true this in the background
     return c->op == TYPE_BACKGROUND;
 }
+
+void int_handler(int i)
+{
+    interrupt = 1;
+}
 int main(int argc, char *argv[])
 {
     FILE *command_file = stdin;
@@ -426,6 +458,7 @@ int main(int argc, char *argv[])
     //   into the foreground
     claim_foreground(0);
     set_signal_handler(SIGTTOU, SIG_IGN);
+    set_signal_handler(SIGINT, int_handler);
 
     char buf[BUFSIZ];
     int bufpos = 0;
@@ -478,6 +511,13 @@ int main(int argc, char *argv[])
         int wstatus;
         while (waitpid(-1, &wstatus, WNOHANG) > 0)
         {
+        }
+        if (interrupt == 1)
+        {
+            kill(getpid(), SIGINT);
+            needprompt = true;
+            interrupt = 0;
+            continue;
         }
     }
 
