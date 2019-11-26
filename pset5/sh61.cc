@@ -14,7 +14,11 @@ struct command
     pid_t pid; // process ID running this command, -1 if none
     int op;
     int cond;
+    int pipe_read_end;
+    int pipe_write_end;
     command *next;
+    bool is_pipe;
+    bool pipe_start;
     command();
     ~command();
 
@@ -31,6 +35,10 @@ command::command()
     this->op = TYPE_SEQUENCE;
     this->next = nullptr;
     this->cond = -1;
+    this->is_pipe = false;
+    this->pipe_read_end = 0;
+    this->pipe_write_end = 1;
+    this->pipe_start = false;
 }
 
 // command::~command()
@@ -67,15 +75,46 @@ pid_t command::make_child(pid_t pgid)
     pid_t p;
     std::vector<char *> argc;
     int r;
-
+    // create pipes
+    int inpfd[2] = {-1, -1};
+    if(is_pipe)
+    {
+        r = pipe(inpfd);
+        if (r < 0)
+        {
+            fprintf(stderr, "Error: pipe() in make_child failed to execute\n");
+            _exit(1);
+        }
+        this->pipe_write_end = inpfd[1];
+        if(this->next)
+        {
+            this->next->pipe_read_end = inpfd[0];
+        }
+    }
     p = fork();
     if (p == -1)
     {
         // fprintf(stderr, "Error: fork() in make_child failed to execute\n");
         _exit(1);
     }
+    // in child
     else if (p == 0)
     {
+        dup2(this->pipe_read_end, 0);
+        dup2(this->pipe_write_end, 1);
+
+        if (this->pipe_read_end != 0)
+        {
+            close(this->pipe_read_end);
+        }
+        if (this->pipe_write_end != 1)
+        {
+            close(this->pipe_write_end);
+        }
+        if (this->is_pipe)
+        {
+            close(inpfd[0]);
+        }
         for (auto const &a : args)
         {
             argc.emplace_back(const_cast<char *>(a.c_str()));
@@ -92,11 +131,20 @@ pid_t command::make_child(pid_t pgid)
         }
         _exit(0);
     }
+    //in parent
     else
     {
+        if (this->pipe_read_end != 0)
+        {
+            close(this->pipe_read_end);
+        }
+        if (this->pipe_write_end != 1)
+        {
+            close(this->pipe_write_end);
+        }
         this->pid = p;
     }
-
+    
     return this->pid;
 }
 
@@ -127,6 +175,7 @@ void run(command *c)
     int prev_type = CONDMAGIC;
     int prev_status = CONDMAGIC;
     pid_t exited_pid;
+    pid_t p;
     //bool ret = chain_in_background(c);
     //do we have a bg chain?
     command *bghead = nullptr;
@@ -163,10 +212,11 @@ void run(command *c)
     }
     while (c != nullptr)
     {
-        if (c->op == TYPE_SEQUENCE)
+        
+        if(prev_type == TYPE_SEQUENCE || prev_type == CONDMAGIC)
         {
             //just run a command
-            pid_t p = c->make_child(0);
+            p = c->make_child(0);
             exited_pid = waitpid(p, &status, 0);
             if (WIFEXITED(status) !=0)
             {
@@ -174,11 +224,12 @@ void run(command *c)
             }
             prev_type = c->op;
         }
-        else if(c->op == TYPE_AND)
+        else if(prev_type == TYPE_AND)
         {
-           if(prev_type == CONDMAGIC)
+            //this means that this command is the first to run
+           if(prev_status == 0)
            {
-               pid_t p = c->make_child(0);
+               p = c->make_child(0);
                exited_pid = waitpid(p, &status, 0);
                if (WIFEXITED(status) != 0)
                {
@@ -186,13 +237,14 @@ void run(command *c)
                }
                prev_type = c->op;
            }
+           
            prev_type = c->op;
         }
-        else if(c->op == TYPE_OR)
+        else if(prev_type == TYPE_OR)
         {
-            if (prev_type == CONDMAGIC)
+            if (prev_status != 0)
             {
-                pid_t p = c->make_child(0);
+                p = c->make_child(0);
                 exited_pid = waitpid(p, &status, 0);
                 if (WIFEXITED(status) != 0)
                 {
@@ -200,44 +252,14 @@ void run(command *c)
                 }
                 prev_type = c->op;
             }
+            if(prev_status != 0)
             prev_type = c->op;
         }
         
         //check if the previous type was a conditional
-        else if (prev_type == TYPE_OR)
-        {
-            // #With ||, the 2nd command runs ONLY if the first
-            // #command DOES NOT exit with status 0.
-            if (prev_status != 0)
-            {
-                pid_t p = c->make_child(0);
-                exited_pid = waitpid(p, &status, 0);
-                if (WIFEXITED(status) != 0)
-                {
-                    prev_status = WEXITSTATUS(status);
-                }
-                prev_type = c->op;
-            }
-            prev_type = c->op;
-        }
-        else if (prev_type == TYPE_AND)
-        {
-            // #With &&, the 2nd command runs ONLY if the first
-            // #command DOES  exit with status 0.
-            if (prev_status == 0)
-            {
-                // printf("AND\n");
-                pid_t p = c->make_child(0);
-                exited_pid = waitpid(p, &status, 0);
-                if (WIFEXITED(status) != 0)
-                {
-                    prev_status = WEXITSTATUS(status);
-                }
-                prev_type = c->op;
-            }
-            prev_type = c->op;
-        }
-
+        
+        prev_type = c->op;
+        
         //move forward to next command
         c = c->next;
     }
@@ -299,8 +321,18 @@ command *parse_line(const char *s)
             c->next = new command;
             c = c->next;
         }
+        if(type == TYPE_PIPE)
+        {
+            if(!c->is_pipe)
+            {
+                c->pipe_start = true;
+            }
+            c->is_pipe = true;
+            c->next = new command;
+            c = c->next;
+        }
     }
-    // c = nullptr;
+    c->next = nullptr;
     return head;
 }
 bool chain_in_background(command *c)
