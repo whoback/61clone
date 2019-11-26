@@ -19,6 +19,10 @@ struct command
     command *next;
     bool is_pipe;
     bool pipe_start;
+    std::string redir_type;
+    std::string infile;
+    std::string outfile;
+    std::string errfile;
     command();
     ~command();
 
@@ -114,6 +118,36 @@ pid_t command::make_child(pid_t pgid)
         if (this->is_pipe)
         {
             close(inpfd[0]);
+        }
+        if(this->redir_type == "<")
+        {
+            int fid = open(this->infile.c_str(), O_RDONLY | O_CLOEXEC);
+            if (fid == -1)
+            {
+                fprintf(stderr, "No such file or directory\n");
+                _exit(1);
+            }
+            dup2(fid, 0);
+        }
+        if(this->redir_type == ">")
+        {
+            int fid = open(this->outfile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+            if (fid == -1)
+            {
+                fprintf(stderr, "No such file or directory\n");
+                _exit(1);
+            }
+            dup2(fid, 1);
+        }
+        if(this->redir_type == "2>")
+        {
+            int fid = open(this->errfile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+            if (fid == -1)
+            {
+                fprintf(stderr, "No such file or directory\n");
+                _exit(1);
+            }
+            dup2(fid, 2);
         }
         for (auto const &a : args)
         {
@@ -330,6 +364,24 @@ command *parse_line(const char *s)
             c->is_pipe = true;
             c->next = new command;
             c = c->next;
+        }
+        if(type == TYPE_REDIRECTION)
+        {
+            c->redir_type = token;
+            std::string redir_type = token;
+            s = parse_shell_token(s, &type, &token);
+            if (redir_type == "<")
+            {
+                c->infile = token;
+            }
+            if (redir_type == ">")
+            {
+                c->outfile = token;
+            }
+            if (redir_type == "2>")
+            {
+                c->errfile = token;
+            }
         }
     }
     c->next = nullptr;
