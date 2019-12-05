@@ -27,7 +27,7 @@ static std::deque<pong_ball*> ball_reserve;
 static std::atomic<unsigned long> nstarted;
 static std::atomic<long> nrunning;
 
-
+std::mutex m;
 // ball_thread(ball)
 //    1. Obtain a ball from the `ball_reserve` and place it
 //       on the board.
@@ -35,13 +35,16 @@ static std::atomic<long> nrunning;
 //    3. Put it back on the `ball_reserve`.
 
 void ball_thread() {
+    std::unique_lock lock(m);
     pong_ball* ball = nullptr;
     while (!ball) {
         if (!ball_reserve.empty()) {
             ball = ball_reserve.front();
+            
             ball_reserve.pop_front();
         }
     }
+    std::unique_lock unlock(m);
     ball->place();
 
     while (true) {
