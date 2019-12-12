@@ -98,17 +98,13 @@ struct pong_ball {
     //    Place this ball onto the board at a random empty or sticky position,
     //    moving in a random direction.
     void place() {
-        std::unique_lock<std::mutex> guard(this->mutex_);
+        
         pong_board& board = this->board_;
 
         // pick a random direction
         this->dx_ = random_int(0, 1) ? 1 : -1;
         this->dy_ = random_int(0, 1) ? 1 : -1;
-        while(this->placed_)
-        {
-            this->notplaced_.wait(guard);
-
-        }
+   
         // pick random positions until a suitable position is found
         while (!this->placed_) {
             int x = random_int(0, board.width_ - 1);
@@ -117,10 +113,12 @@ struct pong_ball {
 
             if ((cell.type_ == cell_empty || cell.type_ == cell_sticky)
                 && !cell.ball_) {
+                    
                 this->x_ = x;
                 this->y_ = y;
                 cell.ball_ = this;
                 this->placed_ = true;
+                
             }
         }
     }
@@ -188,7 +186,9 @@ struct pong_ball {
                 next_cell.ball_->dy_ = this->dy_;
                 this->dy_ = -this->dy_;
             }
+            
             ++board.ncollisions_;
+            
             return 0;
         } else if (next_cell.type_ == cell_obstacle) {
             // obstacle: reverse direction

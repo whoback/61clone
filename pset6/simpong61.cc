@@ -42,30 +42,32 @@ void ball_thread() {
     
     int i = 0;
     pong_ball* ball = nullptr;
-    
-    // while(ball_reserve.empty())
-    // {
-    //     cvmtx.wait(guard);
-    // }
+
+    mtx.lock();
     while (!ball) {
         
         if (!ball_reserve.empty()) {
-            std::scoped_lock guard(ball->mutex_);
-            ball = ball_reserve.front();            
+            
+            ball = ball_reserve.front();
+            
             ball_reserve.pop_front();
             i++;
+            
         }
     }
+    mtx.unlock();
     {
-        std::scoped_lock guard(ball->mutex_);
+        mtx.lock();
         ball->place();
+        mtx.unlock();
     }
     
     
-    
+    mtx.lock();
     while (true) {
-        std::scoped_lock guard(ball->mutex_);
+       
         int mval = ball->move();
+        mtx.unlock();
         if (mval > 0) {
             // ball successfully moved; wait `delay` to move it again
             if (delay > 0) {
@@ -79,10 +81,11 @@ void ball_thread() {
     }
     
 
+    
     ball_reserve.emplace_back(ball);
-    std::unique_lock<std::mutex> guard(thread_mutex);
+    
     --nrunning;
-
+    
 }
 
 
