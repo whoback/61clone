@@ -26,8 +26,12 @@ static std::deque<pong_ball*> ball_reserve;
 // number of running threads
 static std::atomic<unsigned long> nstarted;
 static std::atomic<long> nrunning;
-
-std::mutex m;
+std::mutex mtx;
+std::condition_variable_any cvmtx;
+std::condition_variable_any thread_cv;
+std::mutex mtxthread;
+std::mutex thread_mutex;
+// static std::mutex m[100];
 // ball_thread(ball)
 //    1. Obtain a ball from the `ball_reserve` and place it
 //       on the board.
@@ -35,19 +39,32 @@ std::mutex m;
 //    3. Put it back on the `ball_reserve`.
 
 void ball_thread() {
-    std::unique_lock lock(m);
+    
+    int i = 0;
     pong_ball* ball = nullptr;
+    
+    // while(ball_reserve.empty())
+    // {
+    //     cvmtx.wait(guard);
+    // }
     while (!ball) {
+        
         if (!ball_reserve.empty()) {
-            ball = ball_reserve.front();
-            
+            std::scoped_lock guard(ball->mutex_);
+            ball = ball_reserve.front();            
             ball_reserve.pop_front();
+            i++;
         }
     }
-    std::unique_lock unlock(m);
-    ball->place();
-
+    {
+        std::scoped_lock guard(ball->mutex_);
+        ball->place();
+    }
+    
+    
+    
     while (true) {
+        std::scoped_lock guard(ball->mutex_);
         int mval = ball->move();
         if (mval > 0) {
             // ball successfully moved; wait `delay` to move it again
@@ -56,12 +73,16 @@ void ball_thread() {
             }
         } else if (mval < 0) {
             // ball fell down hole; exit
+            
             break;
         }
     }
+    
 
-    ball_reserve.push_back(ball);
+    ball_reserve.emplace_back(ball);
+    std::unique_lock<std::mutex> guard(thread_mutex);
     --nrunning;
+
 }
 
 
@@ -228,7 +249,7 @@ int main(int argc, char** argv) {
 
     // create balls
     for (int n = 0; n < nballs; ++n) {
-        ball_reserve.push_back(new pong_ball(board));
+        ball_reserve.emplace_back(new pong_ball(board));
     }
 
     if (!single_threaded) {
@@ -239,8 +260,9 @@ int main(int argc, char** argv) {
             ++nstarted;
             ++nrunning;
         }
-
+        // ball_thread();
         // main thread
+        std::scoped_lock<std::mutex> guard(mtxthread);
         if (nholes == 0) {
             // if no holes, block forever
             while (true) {
@@ -254,7 +276,7 @@ int main(int argc, char** argv) {
                     t.detach();
                     ++nstarted;
                     ++nrunning;
-                    usleep(1000);
+                    usleep(delay);
                 }
             }
         }

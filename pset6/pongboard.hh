@@ -30,7 +30,7 @@ struct pong_board {
     std::vector<pong_cell> cells_;     // `width_ * height_`, row-major order
     pong_cell obstacle_cell_;          // represents off-board positions
     unsigned long ncollisions_ = 0;
-
+    std::mutex *mutexes_;
 
     // pong_board(width, height)
     //    Construct a new `width x height` pong board with all empty cells.
@@ -38,11 +38,12 @@ struct pong_board {
         : width_(width), height_(height),
           cells_(width * height, pong_cell()) {
         obstacle_cell_.type_ = cell_obstacle;
+        mutexes_ = new std::mutex[(width + 2) * (height + 2)];
     }
 
     // destroy a pong_board
-    ~pong_board() {
-    }
+    // ~pong_board() {
+    // }
 
     // boards can't be copied, moved, or assigned
     pong_board(const pong_board&) = delete;
@@ -71,7 +72,8 @@ struct pong_ball {
     int y_ = -1;
     int dx_ = 0;
     int dy_ = 0;
-
+    std::mutex mutex_;
+    std::condition_variable_any notplaced_;
 
     // pong_ball(board)
     //    Construct a new ball on `board`.
@@ -83,6 +85,7 @@ struct pong_ball {
     //    Construct a new ball on `board` at a known position.
     pong_ball(pong_board& board, int x, int y, int dx, int dy)
         : board_(board), placed_(true), x_(x), y_(y), dx_(dx), dy_(dy) {
+            // board_.cell(x,y).ball_ = this;
         assert(x >= 0 && x < board.width_ && y >= 0 && y < board.height_);
     }
 
@@ -95,12 +98,17 @@ struct pong_ball {
     //    Place this ball onto the board at a random empty or sticky position,
     //    moving in a random direction.
     void place() {
+        std::unique_lock<std::mutex> guard(this->mutex_);
         pong_board& board = this->board_;
 
         // pick a random direction
         this->dx_ = random_int(0, 1) ? 1 : -1;
         this->dy_ = random_int(0, 1) ? 1 : -1;
+        while(this->placed_)
+        {
+            this->notplaced_.wait(guard);
 
+        }
         // pick random positions until a suitable position is found
         while (!this->placed_) {
             int x = random_int(0, board.width_ - 1);
@@ -141,6 +149,16 @@ struct pong_ball {
         // otherwise, ball is on board
         // assert that this ball is stored in the board correctly
         pong_board& board = this->board_;
+        std::scoped_lock guard(board.mutexes_[x_],
+                               board.mutexes_[x_ + 1],
+                               board.mutexes_[x_ + 2],
+                               board.mutexes_[x_ + board.width_],
+                               board.mutexes_[x_ + board.width_ + 1],
+                               board.mutexes_[x_ + board.width_ + 2],
+                               board.mutexes_[x_ + 2 * board.width_],
+                               board.mutexes_[x_ + 2 * board.width_ + 1],
+                               board.mutexes_[x_ + 2 * board.width_ + 2]);
+
         pong_cell& cur_cell = board.cell(this->x_, this->y_);
         assert(cur_cell.ball_ == this);
 
