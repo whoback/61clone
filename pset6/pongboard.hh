@@ -9,7 +9,9 @@
 struct pong_ball;
 int random_int(int min, int max);
 
-
+std::mutex msticky;
+std::mutex mrand;
+std::mutex mcell;
 enum pong_celltype {
     cell_empty,
     cell_sticky,
@@ -99,11 +101,11 @@ struct pong_ball {
         
         // std::unique_lock<std::mutex> guard(this->mutex_);
         pong_board& board = this->board_;
-        this->mutex_.lock();
+        mrand.lock();
         // pick a random direction
         this->dx_ = random_int(0, 1) ? 1 : -1;
         this->dy_ = random_int(0, 1) ? 1 : -1;
-        this->mutex_.unlock();
+        mrand.unlock();
         // pick random positions until a suitable position is found
         while (!this->placed_) {
             // this->mutex_.lock();
@@ -113,16 +115,16 @@ struct pong_ball {
             
             if ((cell.type_ == cell_empty || cell.type_ == cell_sticky)
                 && !cell.ball_) {
-                
+                mcell.lock();
                 this->x_ = x;
                 this->y_ = y;
-                this->mutex_.lock();
+                // this->mutex_.lock();
                 cell.ball_ = this;
-                this->mutex_.unlock();
-                this->mutex_.lock();
+                // this->mutex_.unlock();
+                // this->mutex_.lock();
                 this->placed_ = true;
-                this->mutex_.unlock();
-                
+                // this->mutex_.unlock();
+                mcell.unlock();
             }
         }
         // this->mutex_.unlock();
@@ -152,15 +154,15 @@ struct pong_ball {
         // otherwise, ball is on board
         // assert that this ball is stored in the board correctly
         pong_board& board = this->board_;
-        // std::scoped_lock guard(board.mutexes_[x_],
-        //                        board.mutexes_[x_ + 1],
-        //                        board.mutexes_[x_ + 2],
-        //                        board.mutexes_[x_ + board.width_],
-        //                        board.mutexes_[x_ + board.width_ + 1],
-        //                        board.mutexes_[x_ + board.width_ + 2],
-        //                        board.mutexes_[x_ + 2 * board.width_],
-        //                        board.mutexes_[x_ + 2 * board.width_ + 1],
-        //                        board.mutexes_[x_ + 2 * board.width_ + 2]);
+        std::scoped_lock guard(board.mutexes_[x_],
+                                board.mutexes_[x_ + 1],
+                                board.mutexes_[x_ + 2],
+                                board.mutexes_[x_ + board.width_],
+                                board.mutexes_[x_ + board.width_ + 1],
+                                board.mutexes_[x_ + board.width_ + 2],
+                                board.mutexes_[x_ + 2 * board.width_],
+                                board.mutexes_[x_ + 2 * board.width_ + 1],
+                                board.mutexes_[x_ + 2 * board.width_ + 2]);
 
         pong_cell& cur_cell = board.cell(this->x_, this->y_);
         assert(cur_cell.ball_ == this);
@@ -182,7 +184,7 @@ struct pong_ball {
         pong_cell& next_cell = board.cell(this->x_ + this->dx_,
                                           this->y_ + this->dy_);
         if (next_cell.ball_) {
-            
+            msticky.lock();
             // collision: change both balls' directions without moving them
             if (next_cell.ball_->dx_ != this->dx_) {
                 next_cell.ball_->dx_ = this->dx_;
@@ -192,7 +194,7 @@ struct pong_ball {
                 next_cell.ball_->dy_ = this->dy_;
                 this->dy_ = -this->dy_;
             }
-            
+            msticky.unlock();
             this->mutex_.lock();
             ++board.ncollisions_;
             this->mutex_.unlock();
