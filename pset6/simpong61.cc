@@ -29,9 +29,10 @@ static std::atomic<long> nrunning;
 std::mutex mtx;
 std::mutex g_bres_mutex;
 std::condition_variable_any cvmtx;
-std::condition_variable_any cv;
+
 std::mutex mtxthread;
 std::mutex thread_mutex;
+std::condition_variable_any thread_cv;
 static std::mutex m[100];
 // ball_thread(ball)
 //    1. Obtain a ball from the `ball_reserve` and place it
@@ -40,42 +41,50 @@ static std::mutex m[100];
 //    3. Put it back on the `ball_reserve`.
 
 void ball_thread() {
-    
+    g_bres_mutex.lock();
     int i = 0;
     
         pong_ball *ball = nullptr;
     // ball->mutex_.lock();
 
-    // std::unique_lock<std::mutex> guard(mtx);
-        mtxthread.lock();
+    
+        // mtxthread.lock();
         while (!ball)
         {
+            
             // std::scoped_lock lock(m[i]);
 
             if (!ball_reserve.empty())
             {
-
+                
+                
                 ball = ball_reserve.front();
-
-                ball_reserve.pop_front();
+                    // mtxthread.lock();
+                    ball_reserve.pop_front();
+                    // mtxthread.unlock();
+                    
                 i++;
+                
             }
             
     }
-    mtxthread.unlock();
+    g_bres_mutex.unlock();
+    // mtxthread.unlock();
     // ball->mutex_.unlock();
         // ball->mutex_.lock();
-        m[0].lock();
+        // m[0].lock();
+        
         ball->place();
-        m[0].unlock();
+        
+        // m[0].unlock();
         // ball->mutex_.unlock();
         while (true)
         {
-            m[3].lock();
+            // m[3].lock();
             // ball->mutex_.lock();
             int mval = ball->move();
             // ball->mutex_.unlock();
-            m[3].unlock();
+            // m[3].unlock();
             if (mval > 0)
             {
                 // ball successfully moved; wait `delay` to move it again
@@ -93,11 +102,12 @@ void ball_thread() {
     }
     
 
-    mtxthread.lock();
-    ball_reserve.emplace_back(ball);
+    // mtxthread.lock();
     
+    ball_reserve.emplace_back(ball);
+    // mtxthread.unlock();
     --nrunning;
-    mtxthread.unlock();
+    
     // ball->mutex_.unlock();
 }
 
@@ -287,6 +297,7 @@ int main(int argc, char** argv) {
         } else {
             // otherwise, start new threads periodically as ball threads exit
             while (true) {
+                
                 if (nrunning < nthreads) {
                     std::thread t(ball_thread);
                     t.detach();
