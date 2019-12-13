@@ -27,11 +27,12 @@ static std::deque<pong_ball*> ball_reserve;
 static std::atomic<unsigned long> nstarted;
 static std::atomic<long> nrunning;
 std::mutex mtx;
+std::mutex g_bres_mutex;
 std::condition_variable_any cvmtx;
-std::condition_variable_any thread_cv;
+std::condition_variable_any cv;
 std::mutex mtxthread;
 std::mutex thread_mutex;
-// static std::mutex m[100];
+static std::mutex m[100];
 // ball_thread(ball)
 //    1. Obtain a ball from the `ball_reserve` and place it
 //       on the board.
@@ -41,43 +42,50 @@ std::mutex thread_mutex;
 void ball_thread() {
     
     int i = 0;
-    pong_ball* ball = nullptr;
+    
+        pong_ball *ball = nullptr;
+    // ball->mutex_.lock();
 
-    mtx.lock();
+    // std::unique_lock<std::mutex> guard(mtx);
+    
     while (!ball) {
-        
+        // std::scoped_lock lock(m[i]);
         if (!ball_reserve.empty()) {
-            
+            m[1].lock();
             ball = ball_reserve.front();
             
             ball_reserve.pop_front();
             i++;
-            
+            m[1].unlock();
         }
     }
-    mtx.unlock();
-    {
-        mtx.lock();
+    // ball->mutex_.unlock();
+        // ball->mutex_.lock();
+        m[0].lock();
         ball->place();
-        mtx.unlock();
-    }
-    
-    
-    mtx.lock();
-    while (true) {
-       
-        int mval = ball->move();
-        mtx.unlock();
-        if (mval > 0) {
-            // ball successfully moved; wait `delay` to move it again
-            if (delay > 0) {
-                usleep(delay);
+        m[0].unlock();
+        // ball->mutex_.unlock();
+        while (true)
+        {
+            m[3].lock();
+            // ball->mutex_.lock();
+            int mval = ball->move();
+            // ball->mutex_.unlock();
+            m[3].unlock();
+            if (mval > 0)
+            {
+                // ball successfully moved; wait `delay` to move it again
+                if (delay > 0)
+                {
+                    usleep(delay);
+                }
             }
-        } else if (mval < 0) {
-            // ball fell down hole; exit
-            
-            break;
-        }
+            else if (mval < 0)
+            {
+                // ball fell down hole; exit
+
+                break;
+            }
     }
     
 
@@ -85,7 +93,7 @@ void ball_thread() {
     ball_reserve.emplace_back(ball);
     
     --nrunning;
-    
+    // ball->mutex_.unlock();
 }
 
 
@@ -265,7 +273,7 @@ int main(int argc, char** argv) {
         }
         // ball_thread();
         // main thread
-        std::scoped_lock<std::mutex> guard(mtxthread);
+        // std::scoped_lock<std::mutex> guard(mtxthread);
         if (nholes == 0) {
             // if no holes, block forever
             while (true) {

@@ -30,7 +30,7 @@ struct pong_board {
     std::vector<pong_cell> cells_;     // `width_ * height_`, row-major order
     pong_cell obstacle_cell_;          // represents off-board positions
     unsigned long ncollisions_ = 0;
-    std::mutex *mutexes_;
+    std::mutex *mutexes_ = nullptr;
 
     // pong_board(width, height)
     //    Construct a new `width x height` pong board with all empty cells.
@@ -42,8 +42,8 @@ struct pong_board {
     }
 
     // destroy a pong_board
-    // ~pong_board() {
-    // }
+    ~pong_board() {
+    }
 
     // boards can't be copied, moved, or assigned
     pong_board(const pong_board&) = delete;
@@ -62,8 +62,6 @@ struct pong_board {
         }
     }
 };
-
-
 
 struct pong_ball {
     pong_board& board_;
@@ -99,28 +97,35 @@ struct pong_ball {
     //    moving in a random direction.
     void place() {
         
+        // std::unique_lock<std::mutex> guard(this->mutex_);
         pong_board& board = this->board_;
-
+        this->mutex_.lock();
         // pick a random direction
         this->dx_ = random_int(0, 1) ? 1 : -1;
         this->dy_ = random_int(0, 1) ? 1 : -1;
-   
+        this->mutex_.unlock();
         // pick random positions until a suitable position is found
         while (!this->placed_) {
+            // this->mutex_.lock();
             int x = random_int(0, board.width_ - 1);
             int y = random_int(0, board.height_ - 1);
             pong_cell& cell = board.cell(x, y);
-
+            
             if ((cell.type_ == cell_empty || cell.type_ == cell_sticky)
                 && !cell.ball_) {
-                    
+                
                 this->x_ = x;
                 this->y_ = y;
+                this->mutex_.lock();
                 cell.ball_ = this;
+                this->mutex_.unlock();
+                this->mutex_.lock();
                 this->placed_ = true;
+                this->mutex_.unlock();
                 
             }
         }
+        // this->mutex_.unlock();
     }
 
 
@@ -147,15 +152,15 @@ struct pong_ball {
         // otherwise, ball is on board
         // assert that this ball is stored in the board correctly
         pong_board& board = this->board_;
-        std::scoped_lock guard(board.mutexes_[x_],
-                               board.mutexes_[x_ + 1],
-                               board.mutexes_[x_ + 2],
-                               board.mutexes_[x_ + board.width_],
-                               board.mutexes_[x_ + board.width_ + 1],
-                               board.mutexes_[x_ + board.width_ + 2],
-                               board.mutexes_[x_ + 2 * board.width_],
-                               board.mutexes_[x_ + 2 * board.width_ + 1],
-                               board.mutexes_[x_ + 2 * board.width_ + 2]);
+        // std::scoped_lock guard(board.mutexes_[x_],
+        //                        board.mutexes_[x_ + 1],
+        //                        board.mutexes_[x_ + 2],
+        //                        board.mutexes_[x_ + board.width_],
+        //                        board.mutexes_[x_ + board.width_ + 1],
+        //                        board.mutexes_[x_ + board.width_ + 2],
+        //                        board.mutexes_[x_ + 2 * board.width_],
+        //                        board.mutexes_[x_ + 2 * board.width_ + 1],
+        //                        board.mutexes_[x_ + 2 * board.width_ + 2]);
 
         pong_cell& cur_cell = board.cell(this->x_, this->y_);
         assert(cur_cell.ball_ == this);
@@ -177,6 +182,7 @@ struct pong_ball {
         pong_cell& next_cell = board.cell(this->x_ + this->dx_,
                                           this->y_ + this->dy_);
         if (next_cell.ball_) {
+            
             // collision: change both balls' directions without moving them
             if (next_cell.ball_->dx_ != this->dx_) {
                 next_cell.ball_->dx_ = this->dx_;
@@ -187,8 +193,9 @@ struct pong_ball {
                 this->dy_ = -this->dy_;
             }
             
+            this->mutex_.lock();
             ++board.ncollisions_;
-            
+            this->mutex_.unlock();
             return 0;
         } else if (next_cell.type_ == cell_obstacle) {
             // obstacle: reverse direction
@@ -197,17 +204,24 @@ struct pong_ball {
             return 0;
         } else if (next_cell.type_ == cell_hole) {
             // hole: fall off board
+            // this->mutex_.lock();
             this->x_ = this->y_ = -1;
             this->dx_ = this->dy_ = 0;
             this->placed_ = false;
             cur_cell.ball_ = nullptr;
+            // this->mutex_.unlock();
             return -1;
         } else {
+            
             // otherwise, move into the next cell
             this->x_ += this->dx_;
             this->y_ += this->dy_;
+            this->mutex_.lock();
             cur_cell.ball_ = nullptr;
+            this->mutex_.unlock();
+            this->mutex_.lock();
             next_cell.ball_ = this;
+            this->mutex_.unlock();
             // stop if the next cell is sticky
             if (next_cell.type_ == cell_sticky) {
                 this->dx_ = this->dy_ = 0;
