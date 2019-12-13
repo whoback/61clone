@@ -93,10 +93,11 @@ void ball_thread() {
     }
     
 
-    
+    mtxthread.lock();
     ball_reserve.emplace_back(ball);
     
     --nrunning;
+    mtxthread.unlock();
     // ball->mutex_.unlock();
 }
 

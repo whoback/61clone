@@ -8,7 +8,8 @@
 #include "helpers.hh"
 struct pong_ball;
 int random_int(int min, int max);
-
+std::mutex m225;
+std::mutex m122;
 std::mutex msticky;
 std::mutex mrand;
 std::mutex mcell;
@@ -112,20 +113,23 @@ struct pong_ball {
             int x = random_int(0, board.width_ - 1);
             int y = random_int(0, board.height_ - 1);
             pong_cell& cell = board.cell(x, y);
-            
+            mcell.lock();
             if ((cell.type_ == cell_empty || cell.type_ == cell_sticky)
                 && !cell.ball_) {
-                mcell.lock();
+                m122.lock();
                 this->x_ = x;
                 this->y_ = y;
                 // this->mutex_.lock();
+                
                 cell.ball_ = this;
+               
                 // this->mutex_.unlock();
                 // this->mutex_.lock();
                 this->placed_ = true;
                 // this->mutex_.unlock();
-                mcell.unlock();
+                m122.unlock();
             }
+            mcell.unlock();
         }
         // this->mutex_.unlock();
     }
@@ -194,10 +198,10 @@ struct pong_ball {
                 next_cell.ball_->dy_ = this->dy_;
                 this->dy_ = -this->dy_;
             }
-            msticky.unlock();
-            this->mutex_.lock();
+            
+            
             ++board.ncollisions_;
-            this->mutex_.unlock();
+            msticky.unlock();
             return 0;
         } else if (next_cell.type_ == cell_obstacle) {
             // obstacle: reverse direction
@@ -214,21 +218,21 @@ struct pong_ball {
             // this->mutex_.unlock();
             return -1;
         } else {
-            mcell.lock();
+            m225.lock();
             // otherwise, move into the next cell
             this->x_ += this->dx_;
             this->y_ += this->dy_;
             
             cur_cell.ball_ = nullptr;
+
             
-            
-            next_cell.ball_ = this;
-            
+                next_cell.ball_ = this;
+            m225.unlock();
             // stop if the next cell is sticky
             if (next_cell.type_ == cell_sticky) {
                 this->dx_ = this->dy_ = 0;
             }
-            mcell.unlock();
+            
             return 1;
         }
     }
