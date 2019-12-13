@@ -214,20 +214,21 @@ struct pong_ball {
             // this->mutex_.unlock();
             return -1;
         } else {
-            
+            mcell.lock();
             // otherwise, move into the next cell
             this->x_ += this->dx_;
             this->y_ += this->dy_;
-            this->mutex_.lock();
+            
             cur_cell.ball_ = nullptr;
-            this->mutex_.unlock();
-            this->mutex_.lock();
+            
+            
             next_cell.ball_ = this;
-            this->mutex_.unlock();
+            
             // stop if the next cell is sticky
             if (next_cell.type_ == cell_sticky) {
                 this->dx_ = this->dy_ = 0;
             }
+            mcell.unlock();
             return 1;
         }
     }

@@ -47,18 +47,22 @@ void ball_thread() {
     // ball->mutex_.lock();
 
     // std::unique_lock<std::mutex> guard(mtx);
-    
-    while (!ball) {
-        // std::scoped_lock lock(m[i]);
-        if (!ball_reserve.empty()) {
-            m[1].lock();
-            ball = ball_reserve.front();
+        mtxthread.lock();
+        while (!ball)
+        {
+            // std::scoped_lock lock(m[i]);
+
+            if (!ball_reserve.empty())
+            {
+
+                ball = ball_reserve.front();
+
+                ball_reserve.pop_front();
+                i++;
+            }
             
-            ball_reserve.pop_front();
-            i++;
-            m[1].unlock();
-        }
     }
+    mtxthread.unlock();
     // ball->mutex_.unlock();
         // ball->mutex_.lock();
         m[0].lock();
