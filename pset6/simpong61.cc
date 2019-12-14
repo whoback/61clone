@@ -32,6 +32,7 @@ std::condition_variable_any cvmtx;
 
 std::mutex mtxthread;
 std::mutex thread_mutex;
+std::mutex cv_mutex;
 std::condition_variable_any thread_cv;
 static std::mutex m[100];
 // ball_thread(ball)
@@ -288,12 +289,17 @@ int main(int argc, char** argv) {
         }
         // ball_thread();
         // main thread
-        // std::scoped_lock<std::mutex> guard(mtxthread);
+        // std::scoped_lock<std::mutex> guard();
+
+        //attempt to fix blocking issue
         if (nholes == 0) {
             // if no holes, block forever
+            std::unique_lock<std::mutex> guard(cv_mutex);
             while (true) {
-                select(0, nullptr, nullptr, nullptr, nullptr);
+                // select(0, nullptr, nullptr, nullptr, nullptr);
+                thread_cv.wait(guard);
             }
+            thread_cv.notify_all();
         } else {
             // otherwise, start new threads periodically as ball threads exit
             while (true) {
