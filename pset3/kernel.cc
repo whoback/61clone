@@ -189,19 +189,12 @@ void process_setup(pid_t pid, const char *program_name)
     
     ptable[pid].pagetable = pt;
     for (vmiter ita(kernel_pagetable, 0), itb(ptable[pid].pagetable, 0);
-         ita.va() < MEMSIZE_VIRTUAL;
+         ita.va() < PROC_START_ADDR;
          ita += PAGESIZE, itb += PAGESIZE)
     {
-        if (itb.va() < PROC_START_ADDR)
-        {
-            itb.map(ita.pa(), ita.perm());
-        }
         
-        else
-        {
-            // nullptr is inaccessible even to the kernel
-            itb.map(ita.pa(), 0);
-        }
+            itb.map(ita.pa(), ita.perm());
+        
     }
 
     // load the program
@@ -246,7 +239,8 @@ void process_setup(pid_t pid, const char *program_name)
     ptable[pid].regs.reg_rip = loader.entry();
 
     // allocate stack
-    uintptr_t stack_addr = PROC_START_ADDR + PROC_SIZE * pid - PAGESIZE;
+   // uintptr_t stack_addr = PROC_START_ADDR + PROC_SIZE * pid - PAGESIZE;
+    uintptr_t stack_addr = MEMSIZE_VIRTUAL - PAGESIZE;
     assert(!pages[stack_addr / PAGESIZE].used());
      //pages[stack_addr / PAGESIZE].refcount = 1;
     void *p = kalloc(PAGESIZE);
@@ -416,10 +410,6 @@ pid_t sys_fork(void)
     // find a free slot in ptable for new process
     for (pid_t i = 1; i < NPROC; ++i)
     {
-        if (i == NPROC)
-        {
-            return -1;
-        }
         if (ptable[i].state == P_FREE)
         {
             // create new process pagetable
