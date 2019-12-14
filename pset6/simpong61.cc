@@ -42,7 +42,8 @@ static std::mutex m[100];
 //    3. Put it back on the `ball_reserve`.
 
 void ball_thread() {
-    g_bres_mutex.lock();
+    // std::scoped_lock lock(g_bres_mutex);
+    // g_bres_mutex.lock();
     int i = 0;
     
         pong_ball *ball = nullptr;
@@ -50,19 +51,20 @@ void ball_thread() {
 
     
         // mtxthread.lock();
+        g_bres_mutex.lock();
         while (!ball)
         {
             
             // std::scoped_lock lock(m[i]);
-
+            
             if (!ball_reserve.empty())
             {
-                
+
                 
                 ball = ball_reserve.front();
-                    // mtxthread.lock();
-                    ball_reserve.pop_front();
-                    // mtxthread.unlock();
+                
+                ball_reserve.pop_front();
+                
                     
                 i++;
                 
@@ -70,6 +72,7 @@ void ball_thread() {
             
     }
     g_bres_mutex.unlock();
+    // g_bres_mutex.unlock();
     // mtxthread.unlock();
     // ball->mutex_.unlock();
         // ball->mutex_.lock();
@@ -116,8 +119,9 @@ void ball_thread() {
     
 
     
-    
+    g_bres_mutex.lock();
     ball_reserve.emplace_back(ball);
+    g_bres_mutex.unlock();
     --nrunning;
     thread_cv.notify_all();
 }
