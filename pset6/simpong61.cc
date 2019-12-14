@@ -34,7 +34,7 @@ std::mutex mtxthread;
 std::mutex thread_mutex;
 std::mutex cv_mutex;
 std::condition_variable_any thread_cv;
-static std::mutex m[100];
+
 // ball_thread(ball)
 //    1. Obtain a ball from the `ball_reserve` and place it
 //       on the board.
