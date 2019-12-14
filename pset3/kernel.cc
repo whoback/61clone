@@ -409,10 +409,6 @@ pid_t sys_fork(void)
     // find a free slot in ptable for new process
     for (pid_t i = 1; i < NPROC; ++i)
     {
-        if (i == NPROC)
-        {
-            return -1;
-        }
         if (ptable[i].state == P_FREE)
         {
             // create new process pagetable
