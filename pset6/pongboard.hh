@@ -179,13 +179,13 @@ struct pong_ball {
 
         // sticky cell: nothing to do
         //lock ball mutex
-        std::unique_lock<std::mutex> guard_sticky(this->mutex_);
+        // std::unique_lock<std::mutex> guard_sticky(this->mutex_);
         
-        while(this->dx_ == 0 && this->dy_ == 0) {
-           board_.cv.wait(guard_sticky);
-            // return 0;
+        if(this->dx_ == 0 && this->dy_ == 0) {
+           
+            return 0;
         }
-        board_.cv.notify_all();
+       
 
         // obstacle: change direction on hitting a board edge
         if (board.cell(this->x_ + this->dx_, this->y_).type_ == cell_obstacle) {

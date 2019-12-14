@@ -94,22 +94,30 @@ void ball_thread() {
                     usleep(delay);
                 }
             }
+            else if (mval == 0)
+            {
+                // ball is stuck
+                while(true)
+                {
+                    msticky_cv.wait(g_bres_mutex);
+                }
+                msticky_cv.notify_all();
+            }
             else if (mval < 0)
             {
                 // ball fell down hole; exit
+                // thread_cv.notify_all();
 
                 break;
             }
     }
     
 
-    // mtxthread.lock();
+    
     
     ball_reserve.emplace_back(ball);
-    // mtxthread.unlock();
     --nrunning;
-    
-    // ball->mutex_.unlock();
+    thread_cv.notify_all();
 }
 
 
@@ -294,25 +302,36 @@ int main(int argc, char** argv) {
         //attempt to fix blocking issue
         if (nholes == 0) {
             // if no holes, block forever
-            std::unique_lock<std::mutex> guard(cv_mutex);
+            // 
             while (true) {
-                // select(0, nullptr, nullptr, nullptr, nullptr);
-                thread_cv.wait(guard);
+                select(0, nullptr, nullptr, nullptr, nullptr);
+                // thread_cv.wait(guard);
             }
-            thread_cv.notify_all();
+            // thread_cv.notify_all();
         } else {
             // otherwise, start new threads periodically as ball threads exit
-            while (true) {
-                
-                if (nrunning < nthreads) {
+            // std::unique_lock<std::mutex> guard(cv_mutex);
+            while(true)
+            {
+                std::unique_lock<std::mutex> guard_holes(cv_mutex);
+                if (nrunning < nthreads)
+                {
+
                     std::thread t(ball_thread);
                     t.detach();
                     ++nstarted;
                     ++nrunning;
                     usleep(delay);
                 }
+                else
+                {
+                    thread_cv.wait(guard_holes);
+                }
             }
+            
         }
+            
+        
     } else {
         // single threaded mode: one thread runs all balls
         // (single threaded mode does not handle holes)
