@@ -97,9 +97,11 @@ void ball_thread() {
             else if (mval == 0)
             {
                 // ball is stuck
+            
                 while(true)
                 {
-                    msticky_cv.wait(g_bres_mutex);
+                    std::unique_lock guard_stick(ball->mutex_);
+                    msticky_cv.wait(guard_stick);
                 }
                 msticky_cv.notify_all();
             }
