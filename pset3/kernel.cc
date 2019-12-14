@@ -189,19 +189,12 @@ void process_setup(pid_t pid, const char *program_name)
     
     ptable[pid].pagetable = pt;
     for (vmiter ita(kernel_pagetable, 0), itb(ptable[pid].pagetable, 0);
-         ita.va() < MEMSIZE_VIRTUAL;
+         ita.va() < PROC_START_ADDR;
          ita += PAGESIZE, itb += PAGESIZE)
     {
-        if (itb.va() < PROC_START_ADDR)
-        {
-            itb.map(ita.pa(), ita.perm());
-        }
         
-        else
-        {
-            // nullptr is inaccessible even to the kernel
-            itb.map(ita.pa(), 0);
-        }
+            itb.map(ita.pa(), ita.perm());
+        
     }
 
     // load the program
