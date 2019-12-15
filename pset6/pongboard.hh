@@ -8,13 +8,11 @@
 #include "helpers.hh"
 struct pong_ball;
 int random_int(int min, int max);
-std::mutex m225;
-std::mutex m122;
 std::mutex msticky;
+extern std::mutex hole;
+std::condition_variable_any hole_cv;
 extern std::mutex g_bres_mutex;
 std::condition_variable_any msticky_cv;
-std::mutex mrand;
-std::mutex mcell;
 std::mutex glbl;
 enum pong_celltype {
     cell_empty,
@@ -181,6 +179,7 @@ struct pong_ball {
             }
             //update stuck flag
             this->stuck = false;
+
             msticky_cv.notify_all();
             
             glbl.lock();
@@ -200,7 +199,7 @@ struct pong_ball {
             this->dx_ = this->dy_ = 0;
             this->placed_ = false;
             cur_cell.ball_ = nullptr;
-            
+            hole_cv.notify_all();
             return -1;
         } else {
             // otherwise, move into the next cell
@@ -208,7 +207,7 @@ struct pong_ball {
             this->y_ += this->dy_;
             
             cur_cell.ball_ = nullptr;
-                next_cell.ball_ = this;
+            next_cell.ball_ = this;
             // stop if the next cell is sticky
             if (next_cell.type_ == cell_sticky) {
                 this->dx_ = this->dy_ = 0;

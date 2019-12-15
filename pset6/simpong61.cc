@@ -21,13 +21,8 @@ static std::deque<pong_ball *> ball_reserve;
 // number of running threads
 static std::atomic<unsigned long> nstarted;
 static std::atomic<long> nrunning;
-std::mutex mtx;
 std::mutex g_bres_mutex;
-std::condition_variable_any cvmtx;
-std::mutex mtxthread;
-std::mutex thread_mutex;
-std::mutex cv_mutex;
-std::condition_variable_any thread_cv;
+std::mutex hole;
 // ball_thread(ball)
 //    1. Obtain a ball from the `ball_reserve` and place it
 //       on the board.
@@ -75,8 +70,9 @@ void ball_thread()
     g_bres_mutex.lock();
     ball_reserve.emplace_back(ball);
     g_bres_mutex.unlock();
-    thread_cv.notify_all();
+    
     --nrunning;
+    hole_cv.notify_all();
 }
 // HELPER FUNCTIONS
 // usage()
@@ -289,15 +285,20 @@ int main(int argc, char **argv)
             while (true)
             {
                 select(0, nullptr, nullptr, nullptr, nullptr);
-                // thread_cv.wait(guard);
+                
             }
-            // thread_cv.notify_all();
+            
         }
         else
         {
             // otherwise, start new threads periodically as ball threads exit
             while (true)
             {
+                if (nrunning == nthreads)
+                {
+                    std::unique_lock guard_hole(hole);
+                    hole_cv.wait(guard_hole);
+                }
                 if (nrunning < nthreads)
                 {
                     std::thread t(ball_thread);
