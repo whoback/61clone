@@ -6,8 +6,7 @@ anonymously, so put all personally identifying information in `AUTHORS.md`.
 
 Grading notes (if any)
 ----------------------
-Struggled mightly with this and found myself going in circles many times. I got to implementing fork and it was working but then I was running into issues and started regressing with my changes... 
-
+Requesting regrade. Thanks.
 
 Extra credit attempted (if any)
 -------------------------------
